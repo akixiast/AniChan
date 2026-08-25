@@ -21,7 +21,7 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    resourceConfigurations.addAll(listOf("en"))
+    resourceConfigurations += listOf("en")
   }
 
   signingConfigs {
@@ -48,7 +48,9 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -58,22 +60,21 @@ android {
     compose = true
     buildConfig = true
   }
-  packaging {
-    resources {
-      excludes += setOf(
-        "/META-INF/{AL2.0,LGPL2.1}",
-        "/META-INF/INDEX.LIST",
-        "/META-INF/io.netty.versions.properties",
-        "/META-INF/DEPENDENCIES",
-        "/META-INF/LICENSE*",
-        "/META-INF/NOTICE*"
-      )
-    }
-  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
+  }
+  packaging {
+    resources {
+      excludes += listOf(
+        "/META-INF/{AL2.0,LGPL2.1}",
+        "/META-INF/DEPENDENCIES",
+        "/META-INF/LICENSE*",
+        "/META-INF/NOTICE*",
+        "/META-INF/INDEX.LIST"
+      )
+    }
   }
 }
 
@@ -131,7 +132,7 @@ dependencies {
   // implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
-  // implementation(libs.retrofit)
+  implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
