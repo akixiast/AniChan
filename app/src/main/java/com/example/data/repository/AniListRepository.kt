@@ -218,6 +218,8 @@ class AniListRepository(
     // Room Database Operations & AniList Cloud Sync
     fun getAllUserEntries(): Flow<List<UserMediaEntry>> = userMediaDao.getAllEntries()
 
+    suspend fun getAllUserEntriesList(): List<UserMediaEntry> = userMediaDao.getAllEntriesDirect()
+
     fun getUserEntry(mediaId: Int): Flow<UserMediaEntry?> = userMediaDao.getEntryFlow(mediaId)
 
     suspend fun saveUserEntry(entry: UserMediaEntry) {

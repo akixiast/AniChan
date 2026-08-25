@@ -1,12 +1,13 @@
 package com.example.ui.viewmodel
 
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.LibraryStats
-import com.example.data.model.MediaType
 import com.example.data.model.UserMediaEntry
-import com.example.data.model.UserWatchStatus
 import com.example.data.repository.AniListRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,14 +28,22 @@ data class LibraryFilter(
     val mediaType: String = "ALL", // ALL, ANIME, MANGA
     val status: String = "ALL", // ALL, WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING, FAVORITES
     val searchQuery: String = "",
-    val sort: LibrarySort = LibrarySort.TITLE
+    val sort: LibrarySort = LibrarySort.TITLE,
+    val hideCompletedInAll: Boolean = false
 )
 
 class LibraryViewModel(
+    application: Application,
     private val repository: AniListRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
-    private val _filter = MutableStateFlow(LibraryFilter())
+    private val prefs = application.getSharedPreferences("anichan_library_prefs", Context.MODE_PRIVATE)
+
+    private val _filter = MutableStateFlow(
+        LibraryFilter(
+            hideCompletedInAll = prefs.getBoolean("hide_completed_in_all", false)
+        )
+    )
     val filter: StateFlow<LibraryFilter> = _filter.asStateFlow()
 
     private val _allEntries = repository.getAllUserEntries()
@@ -47,10 +56,14 @@ class LibraryViewModel(
             list = list.filter { it.type == filter.mediaType }
         }
 
-        // Status / Favorite filter
+        // Status / Favorite / Hide Completed filter
         if (filter.status == "FAVORITES") {
             list = list.filter { it.isFavorite }
-        } else if (filter.status != "ALL") {
+        } else if (filter.status == "ALL") {
+            if (filter.hideCompletedInAll) {
+                list = list.filter { it.status != "COMPLETED" }
+            }
+        } else {
             list = list.filter { it.status == filter.status }
         }
 
@@ -86,7 +99,6 @@ class LibraryViewModel(
             0f
         }
 
-        // 24 minutes per episode estimate
         val daysWatched = (totalEpisodes * 24f) / (60f * 24f)
 
         LibraryStats(
@@ -120,6 +132,17 @@ class LibraryViewModel(
 
     fun setSort(sort: LibrarySort) {
         _filter.value = _filter.value.copy(sort = sort)
+    }
+
+    fun toggleHideCompleted() {
+        val newVal = !_filter.value.hideCompletedInAll
+        _filter.value = _filter.value.copy(hideCompletedInAll = newVal)
+        prefs.edit().putBoolean("hide_completed_in_all", newVal).apply()
+    }
+
+    fun setHideCompleted(hide: Boolean) {
+        _filter.value = _filter.value.copy(hideCompletedInAll = hide)
+        prefs.edit().putBoolean("hide_completed_in_all", hide).apply()
     }
 
     fun incrementProgress(entry: UserMediaEntry) {
@@ -162,9 +185,12 @@ class LibraryViewModel(
     }
 }
 
-class LibraryViewModelFactory(private val repository: AniListRepository) : ViewModelProvider.Factory {
+class LibraryViewModelFactory(
+    private val application: Application,
+    private val repository: AniListRepository
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return LibraryViewModel(repository) as T
+        return LibraryViewModel(application, repository) as T
     }
 }

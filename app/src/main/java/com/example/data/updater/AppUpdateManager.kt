@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +16,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -25,7 +30,8 @@ data class AppRelease(
     val htmlUrl: String,
     val downloadUrl: String,
     val isPrerelease: Boolean,
-    val hasNewerVersion: Boolean
+    val hasNewerVersion: Boolean,
+    val isApkAsset: Boolean = false
 )
 
 sealed class UpdateCheckState {
@@ -36,18 +42,33 @@ sealed class UpdateCheckState {
     data class Error(val message: String) : UpdateCheckState()
 }
 
+sealed class DownloadState {
+    object Idle : DownloadState()
+    data class Downloading(
+        val progress: Float, // 0.0 to 1.0
+        val downloadedBytes: Long,
+        val totalBytes: Long
+    ) : DownloadState()
+    data class DownloadComplete(val file: File) : DownloadState()
+    object Installing : DownloadState()
+    data class Error(val message: String) : DownloadState()
+}
+
 class AppUpdateManager(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("anichan_update_prefs", Context.MODE_PRIVATE)
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val updateState: StateFlow<UpdateCheckState> = _updateState.asStateFlow()
+
+    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
     val currentVersion: String = "v1.1 beta"
     val currentVersionCode: String = "1.1.0"
@@ -66,6 +87,7 @@ class AppUpdateManager(private val context: Context) {
 
     fun resetState() {
         _updateState.value = UpdateCheckState.Idle
+        _downloadState.value = DownloadState.Idle
     }
 
     suspend fun checkForUpdates(): UpdateCheckState = withContext(Dispatchers.IO) {
@@ -103,6 +125,7 @@ class AppUpdateManager(private val context: Context) {
             val isPrerelease = json.optBoolean("prerelease", false)
 
             var downloadUrl = htmlUrl
+            var isApk = false
             val assets = json.optJSONArray("assets")
             if (assets != null && assets.length() > 0) {
                 for (i in 0 until assets.length()) {
@@ -110,6 +133,7 @@ class AppUpdateManager(private val context: Context) {
                     val assetName = asset.optString("name", "")
                     if (assetName.endsWith(".apk", ignoreCase = true)) {
                         downloadUrl = asset.optString("browser_download_url", downloadUrl)
+                        isApk = true
                         break
                     }
                 }
@@ -126,7 +150,8 @@ class AppUpdateManager(private val context: Context) {
                 htmlUrl = htmlUrl,
                 downloadUrl = downloadUrl,
                 isPrerelease = isPrerelease,
-                hasNewerVersion = hasNewer
+                hasNewerVersion = hasNewer,
+                isApkAsset = isApk
             )
 
             val resultState = if (hasNewer) {
@@ -161,7 +186,6 @@ class AppUpdateManager(private val context: Context) {
                 if (r < c) return false
             }
 
-            // If parsed numeric parts are equal, check if cleanRemote is different from cleanCurrent
             return cleanRemote != cleanCurrent && cleanRemote > cleanCurrent
         } catch (e: Exception) {
             return remoteTag.isNotBlank() && !remoteTag.equals(currentVersion, ignoreCase = true)
@@ -181,6 +205,140 @@ class AppUpdateManager(private val context: Context) {
             }
         } catch (e: Exception) {
             raw.take(10)
+        }
+    }
+
+    /**
+     * Downloads APK file with live progress tracking and initiates installation
+     */
+    suspend fun downloadAndInstallApk(release: AppRelease) = withContext(Dispatchers.IO) {
+        val downloadUrl = release.downloadUrl
+
+        // If no direct APK asset available, open release page in browser
+        if (!release.isApkAsset && !downloadUrl.endsWith(".apk", ignoreCase = true)) {
+            openUpdateUrl(downloadUrl)
+            return@withContext
+        }
+
+        _downloadState.value = DownloadState.Downloading(0f, 0L, 0L)
+
+        try {
+            val request = Request.Builder()
+                .url(downloadUrl)
+                .header("User-Agent", "AniChan-Android-App")
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                _downloadState.value = DownloadState.Error("Download failed with server code: ${response.code}")
+                return@withContext
+            }
+
+            val body = response.body
+            if (body == null) {
+                _downloadState.value = DownloadState.Error("Empty download response body")
+                return@withContext
+            }
+
+            val contentLength = body.contentLength()
+            val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
+            val cleanTagName = release.tagName.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+            val destinationFile = File(updatesDir, "AniChan-$cleanTagName.apk")
+
+            if (destinationFile.exists()) {
+                destinationFile.delete()
+            }
+
+            val inputStream = body.byteStream()
+            val outputStream = FileOutputStream(destinationFile)
+            val buffer = ByteArray(8 * 1024)
+            var bytesRead: Int
+            var totalBytesRead = 0L
+
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                outputStream.write(buffer, 0, bytesRead)
+                totalBytesRead += bytesRead
+
+                val progress = if (contentLength > 0) {
+                    (totalBytesRead.toFloat() / contentLength.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    -1f // indeterminate
+                }
+
+                _downloadState.value = DownloadState.Downloading(
+                    progress = progress,
+                    downloadedBytes = totalBytesRead,
+                    totalBytes = contentLength
+                )
+            }
+
+            outputStream.flush()
+            outputStream.close()
+            inputStream.close()
+
+            _downloadState.value = DownloadState.DownloadComplete(destinationFile)
+
+            // Trigger Automatic APK Install
+            installApk(destinationFile)
+
+        } catch (e: Exception) {
+            Log.e("AppUpdateManager", "Failed to download update APK", e)
+            _downloadState.value = DownloadState.Error(e.localizedMessage ?: "Failed to download APK")
+        }
+    }
+
+    /**
+     * Triggers package installer intent for the downloaded APK using FileProvider
+     */
+    fun installApk(apkFile: File) {
+        if (!apkFile.exists()) {
+            _downloadState.value = DownloadState.Error("APK file not found on device")
+            return
+        }
+
+        try {
+            _downloadState.value = DownloadState.Installing
+
+            val apkUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                apkFile
+            )
+
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            context.startActivity(installIntent)
+        } catch (e: Exception) {
+            Log.e("AppUpdateManager", "Error launching installer intent", e)
+            _downloadState.value = DownloadState.Error("Could not start installer: ${e.message}")
+        }
+    }
+
+    fun canInstallUnknownApps(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    fun openInstallPermissionSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}")
+                ).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("AppUpdateManager", "Failed to open install settings", e)
+            }
         }
     }
 

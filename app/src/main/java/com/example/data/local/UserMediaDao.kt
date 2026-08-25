@@ -13,6 +13,9 @@ interface UserMediaDao {
     @Query("SELECT * FROM user_media_entries ORDER BY updatedAt DESC")
     fun getAllEntries(): Flow<List<UserMediaEntry>>
 
+    @Query("SELECT * FROM user_media_entries ORDER BY updatedAt DESC")
+    suspend fun getAllEntriesDirect(): List<UserMediaEntry>
+
     @Query("SELECT * FROM user_media_entries WHERE type = :type ORDER BY updatedAt DESC")
     fun getEntriesByType(type: String): Flow<List<UserMediaEntry>>
 

@@ -223,7 +223,19 @@ fun LibraryScreen(
                         .height(50.dp)
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Quick Toggle Hide Completed if in ALL tab
+                if (filter.status == "ALL") {
+                    FilterChip(
+                        selected = filter.hideCompletedInAll,
+                        onClick = { viewModel.toggleHideCompleted() },
+                        label = { Text("Hide Watched", fontSize = 11.sp) },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("hide_watched_chip")
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
 
                 // Sort Dropdown button
                 val nextSort = when (filter.sort) {

@@ -1,8 +1,13 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -30,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,14 +48,18 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -71,6 +81,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -115,8 +126,10 @@ import coil.compose.AsyncImage
 import com.example.data.account.AniListAccountManager
 import com.example.data.account.AniListAccountState
 import com.example.data.model.AuthType
+import com.example.data.notification.EpisodeNotificationManager
 import com.example.data.updater.AppRelease
 import com.example.data.updater.AppUpdateManager
+import com.example.data.updater.DownloadState
 import com.example.data.updater.UpdateCheckState
 import com.example.data.util.CacheManager
 import com.example.ui.components.AniListEmailLoginDialog
@@ -141,6 +154,27 @@ fun SettingsScreen(
 
     val updateManager = remember { AppUpdateManager.getInstance(context) }
     val updateState by updateManager.updateState.collectAsState()
+    val downloadState by updateManager.downloadState.collectAsState()
+
+    val notificationManager = remember { EpisodeNotificationManager.getInstance(context) }
+    var hasNotifPermission by remember { mutableStateOf<Boolean>(notificationManager.hasNotificationPermission()) }
+    var isNotifEnabled by remember { mutableStateOf<Boolean>(notificationManager.isEpisodeNotificationsEnabled()) }
+    var notifyWatchingOnly by remember { mutableStateOf<Boolean>(notificationManager.isWatchingOnly()) }
+
+    // Library preference prefs
+    val libraryPrefs = remember { context.getSharedPreferences("anichan_library_prefs", Context.MODE_PRIVATE) }
+    var hideCompletedInLibrary by remember {
+        mutableStateOf<Boolean>(libraryPrefs.getBoolean("hide_completed_all", false))
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotifPermission = isGranted
+        if (isGranted) {
+            Toast.makeText(context, "Notification permission granted!", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     var showEmailLoginDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -284,6 +318,106 @@ fun SettingsScreen(
                     },
                     onDisconnect = { showLogoutDialog = true }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Library & Auto-Tracking Preferences Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("library_preferences_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LibraryBooks,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Library & Tracking Clean Mode",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Hide watched toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Hide Watched from Main View",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Keeps finished anime from overcrowding your library. They automatically register and sync to AniList, and remain accessible anytime under the Completed tab.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = hideCompletedInLibrary,
+                            onCheckedChange = { checked ->
+                                hideCompletedInLibrary = checked
+                                libraryPrefs.edit().putBoolean("hide_completed_all", checked).apply()
+                                Toast.makeText(
+                                    context,
+                                    if (checked) "Watched anime hidden from 'All' library view" else "All anime shown in library view",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.testTag("hide_watched_switch")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Automatic AniList Tracking: Whenever you finish or update an episode, it's synced to your AniList account in real-time.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -696,7 +830,166 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ==========================================
-            // Section 5: Updates & Releases
+            // Section 5: Episode Airing & Notifications
+            // ==========================================
+            SectionHeader(
+                icon = Icons.Default.NotificationsActive,
+                title = "Episode Airing Alerts"
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("notifications_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Notification toggle switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Airing Episode Notifications",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Receive push notifications when an anime from your watchlist airs a new episode",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = isNotifEnabled && hasNotifPermission,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotifPermission) {
+                                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        isNotifEnabled = true
+                                        notificationManager.setEpisodeNotificationsEnabled(true)
+                                        Toast.makeText(context, "Airing alerts enabled", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    isNotifEnabled = false
+                                    notificationManager.setEpisodeNotificationsEnabled(false)
+                                    Toast.makeText(context, "Airing alerts disabled", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.testTag("notifications_switch")
+                        )
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotifPermission) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Notification permission required",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("Grant", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Watching titles only toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Watching Titles Only",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Only notify for anime currently marked as 'Watching' (skips Planning/Paused)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = notifyWatchingOnly,
+                            onCheckedChange = { checked ->
+                                notifyWatchingOnly = checked
+                                notificationManager.setWatchingOnly(checked)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Test Notification Button
+                    OutlinedButton(
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotifPermission) {
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                notificationManager.showEpisodeNotification(
+                                    animeTitle = "Demon Slayer: Kimetsu no Yaiba",
+                                    episode = 1,
+                                    mediaId = 101922,
+                                    imageUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-WBsBl0ClmgL+P.jpg",
+                                    airingTimeFormatted = "Today at 7:00 PM"
+                                )
+                                Toast.makeText(context, "Test episode alert sent!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Send Test Episode Airing Alert", fontSize = 12.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ==========================================
+            // Section 6: Updates & Releases (Auto Download & Install)
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.CloudDownload,
@@ -814,7 +1107,7 @@ fun SettingsScreen(
                             }
                         },
                         shape = RoundedCornerShape(10.dp),
-                        enabled = updateState !is UpdateCheckState.Checking,
+                        enabled = updateState !is UpdateCheckState.Checking && downloadState !is DownloadState.Downloading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("check_for_updates_button")
@@ -836,6 +1129,128 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Check for Updates", fontWeight = FontWeight.SemiBold)
                         }
+                    }
+
+                    // Live Download / Install Progress UI
+                    when (val dlState = downloadState) {
+                        is DownloadState.Downloading -> {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Downloading APK Update...",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                        if (dlState.progress >= 0f) {
+                                            Text(
+                                                text = "${(dlState.progress * 100).toInt()}%",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    if (dlState.progress >= 0f) {
+                                        LinearProgressIndicator(
+                                            progress = { dlState.progress },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp))
+                                        )
+                                    } else {
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp))
+                                        )
+                                    }
+
+                                    if (dlState.totalBytes > 0) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "${CacheManager.formatBytes(dlState.downloadedBytes)} / ${CacheManager.formatBytes(dlState.totalBytes)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        is DownloadState.Installing -> {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF10B981).copy(alpha = 0.15f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.InstallMobile,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Launching Android Package Installer...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF047857)
+                                    )
+                                }
+                            }
+                        }
+                        is DownloadState.DownloadComplete -> {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { updateManager.installApk(dlState.file) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.InstallMobile, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Install Downloaded APK")
+                            }
+                        }
+                        is DownloadState.Error -> {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Download error: ${dlState.message}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp
+                            )
+                        }
+                        else -> {}
                     }
 
                     // Update Status Banner
@@ -891,7 +1306,11 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Button(
-                                            onClick = { updateManager.openUpdateUrl(state.release.downloadUrl) },
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    updateManager.downloadAndInstallApk(state.release)
+                                                }
+                                            },
                                             shape = RoundedCornerShape(8.dp),
                                             modifier = Modifier.weight(1f)
                                         ) {
@@ -901,7 +1320,7 @@ fun SettingsScreen(
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Download APK", fontSize = 12.sp)
+                                            Text("Download & Install", fontSize = 11.sp)
                                         }
 
                                         OutlinedButton(
@@ -909,7 +1328,7 @@ fun SettingsScreen(
                                             shape = RoundedCornerShape(8.dp),
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Text("Changelog", fontSize = 12.sp)
+                                            Text("Changelog", fontSize = 11.sp)
                                         }
                                     }
                                 }
@@ -1401,7 +1820,9 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             showUpdateDialog = false
-                            updateManager.openUpdateUrl(currentUpdate.downloadUrl)
+                            coroutineScope.launch {
+                                updateManager.downloadAndInstallApk(currentUpdate)
+                            }
                         }
                     ) {
                         Icon(
@@ -1410,7 +1831,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Download APK")
+                        Text("Download & Install")
                     }
                 }
             },

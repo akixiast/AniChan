@@ -219,8 +219,9 @@ fun AniChanApp(
             }
 
             composable(Screen.Airing.route) {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 val airingViewModel: AiringViewModel = viewModel(
-                    factory = AiringViewModelFactory(repository)
+                    factory = AiringViewModelFactory(context.applicationContext as android.app.Application, repository)
                 )
                 AiringScreen(
                     viewModel = airingViewModel,
@@ -231,8 +232,9 @@ fun AniChanApp(
             }
 
             composable(Screen.Library.route) {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 val libraryViewModel: LibraryViewModel = viewModel(
-                    factory = LibraryViewModelFactory(repository)
+                    factory = LibraryViewModelFactory(context.applicationContext as android.app.Application, repository)
                 )
                 LibraryScreen(
                     viewModel = libraryViewModel,
