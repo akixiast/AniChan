@@ -38,12 +38,14 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Movie
@@ -109,6 +111,7 @@ import coil.compose.AsyncImage
 import com.example.data.account.AniListAccountManager
 import com.example.data.account.AniListAccountState
 import com.example.data.model.AuthType
+import com.example.ui.components.AniListEmailLoginDialog
 import com.example.ui.theme.ColorPalette
 import com.example.ui.theme.ThemeMode
 import com.example.ui.theme.ThemePreferences
@@ -128,6 +131,7 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
+    var showEmailLoginDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showTokenHelpDialog by remember { mutableStateOf(false) }
 
@@ -180,9 +184,10 @@ fun SettingsScreen(
             if (!accountState.isConnected) {
                 AniListConnectCard(
                     accountState = accountState,
-                    onConnectUsername = { username ->
+                    onOpenEmailLogin = { showEmailLoginDialog = true },
+                    onConnectEmailOrUsername = { input ->
                         coroutineScope.launch {
-                            val result = accountManager.loginWithUsername(username)
+                            val result = accountManager.loginWithEmailOrUsername(input)
                             if (result.isSuccess) {
                                 Toast.makeText(
                                     context,
@@ -216,14 +221,7 @@ fun SettingsScreen(
                             }
                         }
                     },
-                    onOpenTokenHelp = { showTokenHelpDialog = true },
-                    onOpenAniListAuthWeb = {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://anilist.co/api/v2/oauth/authorize?client_id=27495&response_type=token")
-                        )
-                        context.startActivity(intent)
-                    }
+                    onOpenTokenHelp = { showTokenHelpDialog = true }
                 )
             } else {
                 AniListConnectedCard(
@@ -737,6 +735,31 @@ fun SettingsScreen(
         }
     }
 
+    // Email / OAuth Login Dialog (In-App WebView for Email & Password)
+    if (showEmailLoginDialog) {
+        AniListEmailLoginDialog(
+            onDismiss = { showEmailLoginDialog = false },
+            onTokenReceived = { token ->
+                coroutineScope.launch {
+                    val result = accountManager.loginWithToken(token)
+                    if (result.isSuccess) {
+                        Toast.makeText(
+                            context,
+                            "Welcome ${result.getOrNull()?.name}! AniList account connected.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            result.exceptionOrNull()?.message ?: "Login failed",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        )
+    }
+
     // Logout Dialog
     if (showLogoutDialog) {
         AlertDialog(
@@ -778,7 +801,7 @@ fun SettingsScreen(
                     )
                     Text(
                         "1. Tap 'Get Token' to open AniList developer authorization in your browser.\n" +
-                                "2. Log in and authorize AniChan.\n" +
+                                "2. Log in with your AniList email & password.\n" +
                                 "3. Copy the token and paste it here.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -788,15 +811,11 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://anilist.co/api/v2/oauth/authorize?client_id=27495&response_type=token")
-                        )
-                        context.startActivity(intent)
                         showTokenHelpDialog = false
+                        showEmailLoginDialog = true
                     }
                 ) {
-                    Text("Open AniList Auth")
+                    Text("Open AniList Email Login")
                 }
             },
             dismissButton = {
@@ -811,14 +830,14 @@ fun SettingsScreen(
 @Composable
 fun AniListConnectCard(
     accountState: AniListAccountState,
-    onConnectUsername: (String) -> Unit,
+    onOpenEmailLogin: () -> Unit,
+    onConnectEmailOrUsername: (String) -> Unit,
     onConnectToken: (String) -> Unit,
     onOpenTokenHelp: () -> Unit,
-    onOpenAniListAuthWeb: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var usernameInput by remember { mutableStateOf("") }
+    var inputQuery by remember { mutableStateOf("") }
     var tokenInput by remember { mutableStateOf("") }
     var tokenVisible by remember { mutableStateOf(false) }
 
@@ -852,7 +871,7 @@ fun AniListConnectCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CloudDownload,
+                        imageVector = Icons.Default.Email,
                         contentDescription = "AniList Connect",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -869,7 +888,7 @@ fun AniListConnectCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Sync & track what you've watched",
+                        text = "Sign in with email & sync your watchlist",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
@@ -877,7 +896,65 @@ fun AniListConnectCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Primary Highlight: Official In-App Email Login Button
+            Button(
+                onClick = onOpenEmailLogin,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3DB4F2)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("anilist_email_login_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Sign In with AniList Email & Password",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
+
+            // Divider with "or enter username / email"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                )
+                Text(
+                    text = "OR ALTERNATIVE METHODS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Method Tabs
             TabRow(
@@ -885,26 +962,26 @@ fun AniListConnectCard(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .height(40.dp)
+                    .height(38.dp)
             ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Quick Username", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text("Email / Username", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("API Token (2-Way)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text("Access Token", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
                 )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
             if (selectedTab == 0) {
-                // Tab 0: Username Sync
+                // Tab 0: Username / Email Quick Sync
                 Text(
-                    text = "Enter your AniList username to instantly import and track all your watched anime, reading manga, scores, and status into AniChan.",
+                    text = "Enter your AniList email or username to look up your profile and import your watched anime, manga, and scores.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
@@ -914,20 +991,20 @@ fun AniListConnectCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
-                    value = usernameInput,
-                    onValueChange = { usernameInput = it },
-                    label = { Text("AniList Username") },
-                    placeholder = { Text("e.g. donyadav, spencer") },
+                    value = inputQuery,
+                    onValueChange = { inputQuery = it },
+                    label = { Text("AniList Email or Username") },
+                    placeholder = { Text("e.g. donyadav100778@gmail.com or donyadav") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Username",
+                            imageVector = if (inputQuery.contains("@")) Icons.Default.Email else Icons.Default.Person,
+                            contentDescription = "User or Email",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     },
                     trailingIcon = {
-                        if (usernameInput.isNotBlank()) {
-                            IconButton(onClick = { usernameInput = "" }) {
+                        if (inputQuery.isNotBlank()) {
+                            IconButton(onClick = { inputQuery = "" }) {
                                 Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear")
                             }
                         }
@@ -935,13 +1012,13 @@ fun AniListConnectCard(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
-                        if (usernameInput.isNotBlank() && !accountState.isSyncing) {
-                            onConnectUsername(usernameInput)
+                        if (inputQuery.isNotBlank() && !accountState.isSyncing) {
+                            onConnectEmailOrUsername(inputQuery)
                         }
                     }),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("anilist_username_input"),
+                        .testTag("anilist_email_username_input"),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -952,8 +1029,8 @@ fun AniListConnectCard(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
-                    onClick = { onConnectUsername(usernameInput) },
-                    enabled = usernameInput.isNotBlank() && !accountState.isSyncing,
+                    onClick = { onConnectEmailOrUsername(inputQuery) },
+                    enabled = inputQuery.isNotBlank() && !accountState.isSyncing,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -975,13 +1052,13 @@ fun AniListConnectCard(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Connect & Sync Watchlist", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Lookup & Sync Watchlist", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             } else {
                 // Tab 1: Token Auth (2-Way)
                 Text(
-                    text = "Enables full 2-way live sync: whenever you update episode progress, score, or status in AniChan, it automatically updates your AniList.co account in real-time.",
+                    text = "Personal Access Tokens grant direct 2-way cloud write access so any updates in AniChan immediately save to your AniList account.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
@@ -1025,7 +1102,7 @@ fun AniListConnectCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = onOpenAniListAuthWeb,
+                        onClick = onOpenEmailLogin,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -1033,12 +1110,12 @@ fun AniListConnectCard(
                             .testTag("anilist_get_token_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.OpenInNew,
+                            imageVector = Icons.Default.Lock,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Get Token", fontSize = 12.sp)
+                        Text("Email Sign-In", fontSize = 12.sp)
                     }
 
                     Button(
@@ -1134,72 +1211,91 @@ fun AniListConnectedCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column {
-            // Header with User Avatar & Banner
+            // Profile Banner Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(90.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    )
             ) {
-                // Banner Image
                 if (!accountState.bannerUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = accountState.bannerUrl,
-                        contentDescription = "Banner",
+                        contentDescription = "Profile Banner",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                } else {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF0F172A),
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        Color(0xFF1E293B)
-                                    )
-                                )
-                            )
+                            .background(Color.Black.copy(alpha = 0.35f))
                     )
                 }
 
-                // Dark overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.45f))
-                )
+                // Top right status badge
+                Surface(
+                    color = Color(0xFF10B981),
+                    shape = RoundedCornerShape(bottomStart = 10.dp),
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudDone,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (accountState.authType == AuthType.TOKEN_AUTH) "2-WAY SYNC" else "CONNECTED",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
 
-                // User Info Overlay
+            // Profile info row with Avatar
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     // Avatar
                     Box(
                         modifier = Modifier
                             .size(54.dp)
                             .clip(CircleShape)
-                            .border(2.dp, Color.White, CircleShape)
+                            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         if (!accountState.avatarUrl.isNullOrBlank()) {
                             AsyncImage(
                                 model = accountState.avatarUrl,
-                                contentDescription = "Avatar",
+                                contentDescription = accountState.userName,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = "Avatar",
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(30.dp)
                             )
                         }
                     }
@@ -1210,117 +1306,65 @@ fun AniListConnectedCard(
                         Text(
                             text = accountState.userName ?: "AniList User",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        Text(
+                            text = "AniList ID: ${accountState.userId ?: "N/A"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                    }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (accountState.authType == AuthType.TOKEN_AUTH)
-                                    Color(0xFF10B981)
-                                else
-                                    Color(0xFF3DB4F2),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Text(
-                                    text = if (accountState.authType == AuthType.TOKEN_AUTH) "2-WAY LIVE SYNC" else "WATCHLIST SYNC",
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-
-                            if (accountState.userId != null) {
-                                Text(
-                                    text = "#${accountState.userId}",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                    // Open profile button
+                    IconButton(
+                        onClick = onOpenProfile,
+                        modifier = Modifier.testTag("open_anilist_profile_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "Open Profile",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
-            }
 
-            // Stats & Controls Body
-            Column(modifier = Modifier.padding(14.dp)) {
-                // 4-Card Statistics Grid
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Stats Grid
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    AniListStatMiniCard(
-                        icon = Icons.Default.Movie,
+                    StatMetricCard(
                         title = "Anime",
                         value = "${accountState.animeCount}",
-                        subtitle = "${accountState.episodesWatched} eps",
+                        subvalue = "${accountState.episodesWatched} eps",
+                        icon = Icons.Default.Movie,
                         modifier = Modifier.weight(1f)
                     )
 
-                    AniListStatMiniCard(
-                        icon = Icons.Default.MenuBook,
+                    StatMetricCard(
                         title = "Manga",
                         value = "${accountState.mangaCount}",
-                        subtitle = "${accountState.chaptersRead} ch",
+                        subvalue = "${accountState.chaptersRead} chs",
+                        icon = Icons.Default.MenuBook,
                         modifier = Modifier.weight(1f)
                     )
 
-                    AniListStatMiniCard(
-                        icon = Icons.Default.Star,
+                    StatMetricCard(
                         title = "Mean Score",
-                        value = if (accountState.animeMeanScore > 0f) "${"%.1f".format(accountState.animeMeanScore)}%" else "--",
-                        subtitle = "Average",
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    AniListStatMiniCard(
+                        value = if (accountState.animeMeanScore > 0) "${accountState.animeMeanScore}%" else "N/A",
+                        subvalue = "${accountState.minutesWatched / 1440} days",
                         icon = Icons.Default.Timer,
-                        title = "Watched",
-                        value = "${"%.1f".format(accountState.minutesWatched / (60f * 24f))}",
-                        subtitle = "Days",
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Sync Status info
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = "Synced",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Last synced: ${formatRelativeTime(accountState.lastSyncTime)} • ${accountState.lastSyncCount} titles in library",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Actions
+                // Action Buttons Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1330,7 +1374,7 @@ fun AniListConnectedCard(
                         enabled = !accountState.isSyncing,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .weight(1.3f)
+                            .weight(1f)
                             .height(40.dp)
                             .testTag("anilist_sync_now_button")
                     ) {
@@ -1349,43 +1393,27 @@ fun AniListConnectedCard(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Sync Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Sync Watchlist", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                    }
-
-                    OutlinedButton(
-                        onClick = onOpenProfile,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .testTag("anilist_view_profile_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInNew,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Profile", fontSize = 11.sp)
                     }
 
                     OutlinedButton(
                         onClick = onDisconnect,
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .weight(0.9f)
-                            .height(40.dp)
-                            .testTag("anilist_disconnect_button"),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
-                        )
+                        ),
+                        modifier = Modifier
+                            .height(40.dp)
+                            .testTag("anilist_disconnect_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Logout,
-                            contentDescription = "Disconnect",
-                            modifier = Modifier.size(14.dp)
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
                         )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Disconnect", fontSize = 12.sp)
                     }
                 }
             }
@@ -1394,61 +1422,56 @@ fun AniListConnectedCard(
 }
 
 @Composable
-fun AniListStatMiniCard(
-    icon: ImageVector,
+fun StatMetricCard(
     title: String,
     value: String,
-    subtitle: String,
+    subvalue: String,
+    icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
     Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+            modifier = Modifier.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
-                maxLines = 1
+                fontSize = 13.sp
             )
             Text(
-                text = subtitle,
+                text = subvalue,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 9.sp,
-                maxLines = 1
+                fontSize = 9.sp
             )
         }
-    }
-}
-
-fun formatRelativeTime(timestamp: Long): String {
-    if (timestamp <= 0L) return "Never"
-    val diff = System.currentTimeMillis() - timestamp
-    val seconds = diff / 1000
-    val minutes = seconds / 60
-    val hours = minutes / 60
-    val days = hours / 24
-
-    return when {
-        seconds < 60 -> "Just now"
-        minutes < 60 -> "$minutes min ago"
-        hours < 24 -> "$hours hr ago"
-        else -> "$days d ago"
     }
 }
 
@@ -1462,28 +1485,18 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth()
     ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(10.dp))
-
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

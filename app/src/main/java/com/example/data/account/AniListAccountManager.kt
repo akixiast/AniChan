@@ -94,20 +94,57 @@ class AniListAccountManager(
         )
     }
 
-    suspend fun loginWithUsername(userName: String): Result<AniListUserProfile> = withContext(Dispatchers.IO) {
-        val cleanName = userName.trim()
-        if (cleanName.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Username cannot be empty"))
+    suspend fun loginWithEmailOrUsername(input: String): Result<AniListUserProfile> = withContext(Dispatchers.IO) {
+        val cleanInput = input.trim()
+        if (cleanInput.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Email or username cannot be empty"))
         }
 
         try {
             _accountState.value = _accountState.value.copy(isSyncing = true, syncError = null)
-            val json = apiService.executeGraphQL(
-                query = AniListGraphQL.USER_BY_NAME_QUERY,
-                variables = mapOf("userName" to cleanName)
+            
+            // If it's an email format, first try the username prefix before '@', then full input
+            val candidates = if (cleanInput.contains("@")) {
+                listOf(cleanInput.substringBefore("@").trim(), cleanInput)
+            } else {
+                listOf(cleanInput)
+            }
+
+            var matchedProfile: AniListUserProfile? = null
+
+            for (candidate in candidates) {
+                if (candidate.isBlank()) continue
+
+                // 1. Try exact username match
+                try {
+                    val json = apiService.executeGraphQL(
+                        query = AniListGraphQL.USER_BY_NAME_QUERY,
+                        variables = mapOf("userName" to candidate)
+                    )
+                    val profile = AniListGraphQL.parseUserProfile(json)
+                    if (profile != null && profile.id > 0) {
+                        matchedProfile = profile
+                        break
+                    }
+                } catch (_: Exception) {}
+
+                // 2. Try user search query
+                try {
+                    val json = apiService.executeGraphQL(
+                        query = AniListGraphQL.USER_SEARCH_QUERY,
+                        variables = mapOf("search" to candidate)
+                    )
+                    val profile = AniListGraphQL.parseUserProfile(json)
+                    if (profile != null && profile.id > 0) {
+                        matchedProfile = profile
+                        break
+                    }
+                } catch (_: Exception) {}
+            }
+
+            val profile = matchedProfile ?: return@withContext Result.failure(
+                Exception("Could not find AniList user '$cleanInput'. Please verify your AniList username or use 'Sign in with AniList Email' below.")
             )
-            val profile = AniListGraphQL.parseUserProfile(json)
-                ?: return@withContext Result.failure(Exception("Could not find user '$cleanName' on AniList"))
 
             saveProfile(profile, AuthType.USERNAME_SYNC, token = null)
             
@@ -116,7 +153,7 @@ class AniListAccountManager(
 
             Result.success(profile)
         } catch (e: Exception) {
-            Log.e("AniListAccountManager", "Login with username failed", e)
+            Log.e("AniListAccountManager", "Login with email/username failed", e)
             _accountState.value = _accountState.value.copy(
                 isSyncing = false,
                 syncError = e.message ?: "Failed to connect to AniList"
@@ -124,6 +161,8 @@ class AniListAccountManager(
             Result.failure(e)
         }
     }
+
+    suspend fun loginWithUsername(userName: String): Result<AniListUserProfile> = loginWithEmailOrUsername(userName)
 
     suspend fun loginWithToken(tokenInput: String): Result<AniListUserProfile> = withContext(Dispatchers.IO) {
         val cleanToken = tokenInput.trim()

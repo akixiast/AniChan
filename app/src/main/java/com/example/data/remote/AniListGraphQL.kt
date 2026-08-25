@@ -47,6 +47,35 @@ object AniListGraphQL {
         }
     """.trimIndent()
 
+    val USER_SEARCH_QUERY = """
+        query (${'$'}search: String) {
+          User(search: ${'$'}search) {
+            id
+            name
+            about
+            avatar {
+              large
+              medium
+            }
+            bannerImage
+            statistics {
+              anime {
+                count
+                meanScore
+                minutesWatched
+                episodesWatched
+              }
+              manga {
+                count
+                meanScore
+                chaptersRead
+                volumesRead
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
     val VIEWER_QUERY = """
         query {
           Viewer {
