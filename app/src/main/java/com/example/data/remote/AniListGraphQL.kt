@@ -153,13 +153,15 @@ object AniListGraphQL {
     """.trimIndent()
 
     val SEARCH_QUERY = """
-        query (${'$'}search: String, ${'$'}type: MediaType, ${'$'}genre: String, ${'$'}season: MediaSeason, ${'$'}seasonYear: Int, ${'$'}format: MediaFormat, ${'$'}status: MediaStatus, ${'$'}sort: [MediaSort], ${'$'}page: Int, ${'$'}perPage: Int) {
+        query (${'$'}search: String, ${'$'}type: MediaType, ${'$'}genre: String, ${'$'}tag: String, ${'$'}season: MediaSeason, ${'$'}seasonYear: Int, ${'$'}format: MediaFormat, ${'$'}status: MediaStatus, ${'$'}countryOfOrigin: CountryCode, ${'$'}sort: [MediaSort], ${'$'}page: Int, ${'$'}perPage: Int) {
           Page(page: ${'$'}page, perPage: ${'$'}perPage) {
             pageInfo {
-              hasNextPage
+              total
               currentPage
+              hasNextPage
+              lastPage
             }
-            media(search: ${'$'}search, type: ${'$'}type, genre: ${'$'}genre, season: ${'$'}season, seasonYear: ${'$'}seasonYear, format: ${'$'}format, status: ${'$'}status, sort: ${'$'}sort) {
+            media(search: ${'$'}search, type: ${'$'}type, genre: ${'$'}genre, tag: ${'$'}tag, season: ${'$'}season, seasonYear: ${'$'}seasonYear, format: ${'$'}format, status: ${'$'}status, countryOfOrigin: ${'$'}countryOfOrigin, sort: ${'$'}sort) {
               id
               idMal
               title {
@@ -175,6 +177,7 @@ object AniListGraphQL {
               seasonYear
               episodes
               chapters
+              volumes
               duration
               coverImage {
                 extraLarge
@@ -184,7 +187,10 @@ object AniListGraphQL {
               bannerImage
               genres
               averageScore
+              meanScore
               popularity
+              favourites
+              trending
               studios(isMain: true) {
                 nodes {
                   name
@@ -597,6 +603,40 @@ object AniListGraphQL {
             relations = relationsList,
             recommendations = recList,
             reviews = reviewList
+        )
+    }
+
+    fun parseSearchPage(jsonResponse: String): com.example.data.model.SearchResult {
+        val list = mutableListOf<MediaItem>()
+        var hasNextPage = false
+        var total = 0
+        var currentPage = 1
+        try {
+            val root = JSONObject(jsonResponse)
+            val data = root.optJSONObject("data")
+            val page = data?.optJSONObject("Page")
+            if (page != null) {
+                val pageInfo = page.optJSONObject("pageInfo")
+                hasNextPage = pageInfo?.optBoolean("hasNextPage", false) ?: false
+                total = pageInfo?.optInt("total", 0) ?: 0
+                currentPage = pageInfo?.optInt("currentPage", 1) ?: 1
+
+                val mediaArr = page.optJSONArray("media")
+                if (mediaArr != null) {
+                    for (i in 0 until mediaArr.length()) {
+                        val itemJson = mediaArr.optJSONObject(i) ?: continue
+                        list.add(parseMediaItem(itemJson))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return com.example.data.model.SearchResult(
+            items = list,
+            hasNextPage = hasNextPage,
+            totalCount = total,
+            currentPage = currentPage
         )
     }
 

@@ -22,11 +22,15 @@ data class SearchUiState(
     val selectedYear: Int? = null,
     val selectedFormat: String? = null,
     val selectedStatus: String? = null,
+    val selectedCountry: String? = null, // "JP", "KR", "CN"
     val selectedSort: String = "POPULARITY_DESC",
     val isGridView: Boolean = true,
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
     val results: List<MediaItem> = emptyList(),
     val totalCount: Int = 0,
+    val currentPage: Int = 1,
+    val hasNextPage: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -40,15 +44,15 @@ class SearchViewModel(
     private var searchJob: Job? = null
 
     init {
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun onQueryChanged(newQuery: String) {
         _uiState.value = _uiState.value.copy(query = newQuery)
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(350)
-            performSearch()
+            delay(300)
+            performSearch(page = 1, append = false)
         }
     }
 
@@ -57,42 +61,48 @@ class SearchViewModel(
             mediaType = type,
             selectedFormat = null // Reset format filter when switching type
         )
-        performSearch()
+        performSearch(page = 1, append = false)
+    }
+
+    fun selectCountry(countryCode: String?) {
+        val newCountry = if (_uiState.value.selectedCountry == countryCode) null else countryCode
+        _uiState.value = _uiState.value.copy(selectedCountry = newCountry)
+        performSearch(page = 1, append = false)
     }
 
     fun selectGenre(genre: String?) {
         val newGenre = if (_uiState.value.selectedGenre == genre) null else genre
         _uiState.value = _uiState.value.copy(selectedGenre = newGenre)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun selectSeason(season: String?) {
         val newSeason = if (_uiState.value.selectedSeason == season) null else season
         _uiState.value = _uiState.value.copy(selectedSeason = newSeason)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun selectYear(year: Int?) {
         val newYear = if (_uiState.value.selectedYear == year) null else year
         _uiState.value = _uiState.value.copy(selectedYear = newYear)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun selectFormat(format: String?) {
         val newFormat = if (_uiState.value.selectedFormat == format) null else format
         _uiState.value = _uiState.value.copy(selectedFormat = newFormat)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun selectStatus(status: String?) {
         val newStatus = if (_uiState.value.selectedStatus == status) null else status
         _uiState.value = _uiState.value.copy(selectedStatus = newStatus)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun selectSort(sort: String) {
         _uiState.value = _uiState.value.copy(selectedSort = sort)
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
     fun toggleLayoutMode() {
@@ -106,16 +116,22 @@ class SearchViewModel(
             selectedYear = null,
             selectedFormat = null,
             selectedStatus = null,
+            selectedCountry = null,
             selectedSort = "POPULARITY_DESC"
         )
-        performSearch()
+        performSearch(page = 1, append = false)
     }
 
-    fun performSearch() {
+    fun performSearch(page: Int = 1, append: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            if (append) {
+                _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            }
+
             val state = _uiState.value
-            val result = repository.searchMedia(
+            val result = repository.searchMediaPage(
                 query = state.query.ifBlank { null },
                 type = state.mediaType,
                 genre = state.selectedGenre,
@@ -123,23 +139,42 @@ class SearchViewModel(
                 seasonYear = state.selectedYear,
                 format = state.selectedFormat,
                 status = state.selectedStatus,
+                countryOfOrigin = state.selectedCountry,
                 sort = state.selectedSort,
-                page = 1,
-                perPage = 30
+                page = page,
+                perPage = 28
             )
 
-            result.onSuccess { list ->
+            result.onSuccess { searchResult ->
+                val combinedList = if (append) {
+                    val existingIds = state.results.map { it.id }.toSet()
+                    state.results + searchResult.items.filter { it.id !in existingIds }
+                } else {
+                    searchResult.items
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    results = list,
-                    totalCount = list.size
+                    isLoadingMore = false,
+                    results = combinedList,
+                    totalCount = if (searchResult.totalCount > 0) searchResult.totalCount else combinedList.size,
+                    currentPage = page,
+                    hasNextPage = searchResult.hasNextPage
                 )
             }.onFailure { err ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isLoadingMore = false,
                     errorMessage = err.message
                 )
             }
+        }
+    }
+
+    fun loadNextPage() {
+        val state = _uiState.value
+        if (!state.isLoading && !state.isLoadingMore && state.hasNextPage) {
+            performSearch(page = state.currentPage + 1, append = true)
         }
     }
 

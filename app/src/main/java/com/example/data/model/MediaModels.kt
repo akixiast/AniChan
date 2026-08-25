@@ -176,3 +176,10 @@ data class LibraryStats(
     val meanScore: Float = 0f,
     val estimatedDaysWatched: Float = 0f
 )
+
+data class SearchResult(
+    val items: List<MediaItem>,
+    val hasNextPage: Boolean = false,
+    val totalCount: Int = 0,
+    val currentPage: Int = 1
+)

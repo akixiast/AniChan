@@ -90,14 +90,47 @@ class AniListRepository(
         query: String?,
         type: MediaType = MediaType.ANIME,
         genre: String? = null,
+        tag: String? = null,
         season: String? = null,
         seasonYear: Int? = null,
         format: String? = null,
         status: String? = null,
+        countryOfOrigin: String? = null,
         sort: String = "POPULARITY_DESC",
         page: Int = 1,
         perPage: Int = 24
     ): Result<List<MediaItem>> {
+        val pageResult = searchMediaPage(
+            query = query,
+            type = type,
+            genre = genre,
+            tag = tag,
+            season = season,
+            seasonYear = seasonYear,
+            format = format,
+            status = status,
+            countryOfOrigin = countryOfOrigin,
+            sort = sort,
+            page = page,
+            perPage = perPage
+        )
+        return pageResult.map { it.items }
+    }
+
+    suspend fun searchMediaPage(
+        query: String?,
+        type: MediaType = MediaType.ANIME,
+        genre: String? = null,
+        tag: String? = null,
+        season: String? = null,
+        seasonYear: Int? = null,
+        format: String? = null,
+        status: String? = null,
+        countryOfOrigin: String? = null,
+        sort: String = "POPULARITY_DESC",
+        page: Int = 1,
+        perPage: Int = 24
+    ): Result<com.example.data.model.SearchResult> {
         return try {
             val vars = mutableMapOf<String, Any?>(
                 "type" to type.apiValue,
@@ -107,24 +140,32 @@ class AniListRepository(
             )
             if (!query.isNullOrBlank()) vars["search"] = query.trim()
             if (!genre.isNullOrBlank()) vars["genre"] = genre
+            if (!tag.isNullOrBlank()) vars["tag"] = tag
             if (!season.isNullOrBlank()) vars["season"] = season
-            if (seasonYear != null && seasonYear > 1960) vars["seasonYear"] = seasonYear
+            if (seasonYear != null && seasonYear > 1940) vars["seasonYear"] = seasonYear
             if (!format.isNullOrBlank()) vars["format"] = format
             if (!status.isNullOrBlank()) vars["status"] = status
+            if (!countryOfOrigin.isNullOrBlank()) vars["countryOfOrigin"] = countryOfOrigin
 
             val json = apiService.executeGraphQL(AniListGraphQL.SEARCH_QUERY, vars)
-            val list = AniListGraphQL.parseMediaList(json)
-            Result.success(list)
+            val searchResult = AniListGraphQL.parseSearchPage(json)
+            Result.success(searchResult)
         } catch (e: Exception) {
-            Log.e("AniListRepository", "searchMedia error", e)
-            // Filter local seed data on error
+            Log.e("AniListRepository", "searchMediaPage error", e)
             val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
             val filtered = if (!query.isNullOrBlank()) {
                 seed.filter { it.displayTitle.contains(query, ignoreCase = true) || it.titleRomaji.contains(query, ignoreCase = true) }
             } else {
                 seed
             }
-            Result.success(filtered)
+            Result.success(
+                com.example.data.model.SearchResult(
+                    items = filtered,
+                    hasNextPage = false,
+                    totalCount = filtered.size,
+                    currentPage = page
+                )
+            )
         }
     }
 

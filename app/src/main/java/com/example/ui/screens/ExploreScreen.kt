@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.WbSunny
@@ -71,6 +72,7 @@ fun ExploreScreen(
     viewModel: ExploreViewModel,
     onNavigateToDetail: (Int) -> Unit,
     onNavigateToSearch: (String?) -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -118,12 +120,12 @@ fun ExploreScreen(
                     }
 
                     IconButton(
-                        onClick = { viewModel.loadData() },
-                        modifier = Modifier.testTag("explore_refresh_icon")
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier.testTag("explore_settings_icon")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
                         )
                     }
                 },

@@ -7,10 +7,12 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,6 +41,8 @@ import com.example.ui.screens.DetailScreen
 import com.example.ui.screens.ExploreScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.SearchScreen
+import com.example.ui.screens.SettingsScreen
+import com.example.ui.theme.ThemePreferences
 import com.example.ui.viewmodel.AiringViewModel
 import com.example.ui.viewmodel.AiringViewModelFactory
 import com.example.ui.viewmodel.DetailViewModel
@@ -60,6 +64,7 @@ sealed class Screen(val route: String, val title: String, val selectedIcon: Imag
     object Detail : Screen("detail/{mediaId}", "Detail", Icons.Filled.Explore, Icons.Outlined.Explore) {
         fun createRoute(mediaId: Int) = "detail/$mediaId"
     }
+    object Settings : Screen("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
 }
 
 val bottomNavItems = listOf(
@@ -72,6 +77,7 @@ val bottomNavItems = listOf(
 @Composable
 fun AniChanApp(
     repository: AniListRepository,
+    themePreferences: ThemePreferences,
     navController: NavHostController = rememberNavController()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -171,6 +177,9 @@ fun AniChanApp(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }
@@ -254,6 +263,13 @@ fun AniChanApp(
                     onNavigateToMedia = { newMediaId ->
                         navController.navigate(Screen.Detail.createRoute(newMediaId))
                     }
+                )
+            }
+
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    themePreferences = themePreferences,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }
