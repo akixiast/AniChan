@@ -17,17 +17,17 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class LibrarySort(val displayName: String) {
-    UPDATED("Last Updated"),
+    TITLE("Title (A-Z)"),
     SCORE("Score"),
-    TITLE("Title"),
-    PROGRESS("Progress")
+    PROGRESS("Progress"),
+    UPDATED("Recently Updated")
 }
 
 data class LibraryFilter(
     val mediaType: String = "ALL", // ALL, ANIME, MANGA
     val status: String = "ALL", // ALL, WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING, FAVORITES
     val searchQuery: String = "",
-    val sort: LibrarySort = LibrarySort.UPDATED
+    val sort: LibrarySort = LibrarySort.TITLE
 )
 
 class LibraryViewModel(
@@ -61,10 +61,10 @@ class LibraryViewModel(
 
         // Sorting
         when (filter.sort) {
+            LibrarySort.TITLE -> list.sortedBy { it.title.lowercase() }
+            LibrarySort.SCORE -> list.sortedWith(compareByDescending<UserMediaEntry> { it.score }.thenBy { it.title.lowercase() })
+            LibrarySort.PROGRESS -> list.sortedWith(compareByDescending<UserMediaEntry> { it.progress }.thenBy { it.title.lowercase() })
             LibrarySort.UPDATED -> list.sortedByDescending { it.updatedAt }
-            LibrarySort.SCORE -> list.sortedByDescending { it.score }
-            LibrarySort.TITLE -> list.sortedBy { it.title }
-            LibrarySort.PROGRESS -> list.sortedByDescending { it.progress }
         }
     }.stateIn(
         scope = viewModelScope,

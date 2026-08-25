@@ -227,13 +227,13 @@ fun LibraryScreen(
 
                 // Sort Dropdown button
                 val nextSort = when (filter.sort) {
-                    LibrarySort.UPDATED -> LibrarySort.SCORE
-                    LibrarySort.SCORE -> LibrarySort.TITLE
-                    LibrarySort.TITLE -> LibrarySort.PROGRESS
+                    LibrarySort.TITLE -> LibrarySort.SCORE
+                    LibrarySort.SCORE -> LibrarySort.PROGRESS
                     LibrarySort.PROGRESS -> LibrarySort.UPDATED
+                    LibrarySort.UPDATED -> LibrarySort.TITLE
                 }
                 FilterChip(
-                    selected = false,
+                    selected = filter.sort != LibrarySort.TITLE,
                     onClick = { viewModel.setSort(nextSort) },
                     label = { Text(filter.sort.displayName, fontSize = 11.sp) },
                     leadingIcon = { Icon(Icons.Default.Sort, contentDescription = null, modifier = Modifier.size(14.dp)) },
@@ -295,7 +295,8 @@ fun LibraryScreen(
                             onCardClick = { onNavigateToDetail(entry.mediaId) },
                             onEditClick = { entryToEdit = entry },
                             onIncrementProgress = { viewModel.incrementProgress(entry) },
-                            onToggleFavorite = { viewModel.toggleFavorite(entry) }
+                            onToggleFavorite = { viewModel.toggleFavorite(entry) },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }

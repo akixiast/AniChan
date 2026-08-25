@@ -84,6 +84,7 @@ import com.example.data.model.ReviewItem
 import com.example.data.model.UserMediaEntry
 import com.example.ui.components.AnimeScoreBadge
 import com.example.ui.components.FormatBadge
+import com.example.ui.components.InAppTrailerCard
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.TrackMediaBottomSheet
 import com.example.ui.theme.AniCoralSecondary
@@ -451,26 +452,16 @@ fun DetailScreen(
                     }
                 }
 
-                // Trailer Video Link
+                // In-App Trailer Player Section
                 val trailerId = media.trailerId
                 if (!trailerId.isNullOrBlank()) {
                     item {
-                        Button(
-                            onClick = {
-                                val ytIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$trailerId"))
-                                context.startActivity(ytIntent)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF0000)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                                .testTag("watch_trailer_button")
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Watch Trailer on YouTube", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
+                        InAppTrailerCard(
+                            trailerId = trailerId,
+                            title = media.displayTitle,
+                            thumbnailUrl = media.bannerImage ?: media.coverImageLarge,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
                     }
                 }
 
