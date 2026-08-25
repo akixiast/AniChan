@@ -45,7 +45,11 @@ class AniListApiService {
         }
     }
 
-    suspend fun executeGraphQL(query: String, variables: Map<String, Any?> = emptyMap()): String = withContext(Dispatchers.IO) {
+    suspend fun executeGraphQL(
+        query: String,
+        variables: Map<String, Any?> = emptyMap(),
+        authToken: String? = null
+    ): String = withContext(Dispatchers.IO) {
         val payload = JSONObject()
         payload.put("query", query)
 
@@ -58,12 +62,17 @@ class AniListApiService {
         payload.put("variables", varsJson)
 
         val requestBody = payload.toString().toRequestBody(jsonMediaType)
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(AniListGraphQL.BASE_URL)
             .post(requestBody)
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
-            .build()
+
+        if (!authToken.isNullOrBlank()) {
+            requestBuilder.header("Authorization", "Bearer $authToken")
+        }
+
+        val request = requestBuilder.build()
 
         try {
             val response = client.newCall(request).execute()

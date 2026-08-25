@@ -78,6 +78,7 @@ val bottomNavItems = listOf(
 fun AniChanApp(
     repository: AniListRepository,
     themePreferences: ThemePreferences,
+    accountManager: com.example.data.account.AniListAccountManager,
     navController: NavHostController = rememberNavController()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -269,6 +270,7 @@ fun AniChanApp(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     themePreferences = themePreferences,
+                    accountManager = accountManager,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

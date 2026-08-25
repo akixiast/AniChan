@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,66 +24,112 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.data.account.AniListAccountManager
+import com.example.data.account.AniListAccountState
+import com.example.data.model.AuthType
 import com.example.ui.theme.ColorPalette
 import com.example.ui.theme.ThemeMode
 import com.example.ui.theme.ThemePreferences
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     themePreferences: ThemePreferences,
+    accountManager: AniListAccountManager,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val themeState by themePreferences.themeState.collectAsState()
+    val accountState by accountManager.accountState.collectAsState()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showTokenHelpDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -119,7 +168,100 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // ==========================================
-            // Section 1: Appearance & Theme
+            // Section 1: AniList Account Connection & Watchlist Sync
+            // ==========================================
+            SectionHeader(
+                icon = Icons.Default.AccountCircle,
+                title = "AniList Account & Tracking"
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (!accountState.isConnected) {
+                AniListConnectCard(
+                    accountState = accountState,
+                    onConnectUsername = { username ->
+                        coroutineScope.launch {
+                            val result = accountManager.loginWithUsername(username)
+                            if (result.isSuccess) {
+                                Toast.makeText(
+                                    context,
+                                    "Connected as ${result.getOrNull()?.name}! Watchlist synced.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    result.exceptionOrNull()?.message ?: "Failed to connect",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    onConnectToken = { token ->
+                        coroutineScope.launch {
+                            val result = accountManager.loginWithToken(token)
+                            if (result.isSuccess) {
+                                Toast.makeText(
+                                    context,
+                                    "Connected as ${result.getOrNull()?.name}! 2-Way Sync enabled.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    result.exceptionOrNull()?.message ?: "Invalid token",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    onOpenTokenHelp = { showTokenHelpDialog = true },
+                    onOpenAniListAuthWeb = {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://anilist.co/api/v2/oauth/authorize?client_id=27495&response_type=token")
+                        )
+                        context.startActivity(intent)
+                    }
+                )
+            } else {
+                AniListConnectedCard(
+                    accountState = accountState,
+                    onSyncNow = {
+                        coroutineScope.launch {
+                            val result = accountManager.syncWatchlist()
+                            if (result.isSuccess) {
+                                val count = result.getOrDefault(0)
+                                Toast.makeText(
+                                    context,
+                                    "Watchlist synced ($count titles updated)",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    result.exceptionOrNull()?.message ?: "Sync failed",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    onOpenProfile = {
+                        val username = accountState.userName ?: ""
+                        if (username.isNotBlank()) {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://anilist.co/user/$username"))
+                            context.startActivity(intent)
+                        }
+                    },
+                    onDisconnect = { showLogoutDialog = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ==========================================
+            // Section 2: Appearance & Theme
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.Palette,
@@ -333,7 +475,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ==========================================
-            // Section 2: Display & Language
+            // Section 3: Display & Language
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.Language,
@@ -365,7 +507,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ==========================================
-            // Section 3: Data & Storage
+            // Section 4: Data & Storage
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.Public,
@@ -436,7 +578,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ==========================================
-            // Section 4: About Section (App Version v1.1 beta)
+            // Section 5: About Section (App Version v1.1 beta)
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.Info,
@@ -511,7 +653,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Your next-generation Anime, Manga & Light Novel companion. Track your ongoing watchlist, explore seasonal charts, and discover titles across anime history.",
+                        text = "Your next-generation Anime, Manga & Light Novel companion. Track your ongoing watchlist, explore seasonal charts, and sync directly with your AniList account.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -594,6 +736,720 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+
+    // Logout Dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Disconnect AniList Account") },
+            text = {
+                Text("Are you sure you want to disconnect? Your local library entries will remain preserved on your device.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        accountManager.logout()
+                        showLogoutDialog = false
+                        Toast.makeText(context, "AniList account disconnected", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Disconnect")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Token Help Dialog
+    if (showTokenHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showTokenHelpDialog = false },
+            title = { Text("About AniList API Tokens") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "An AniList Personal Access Token lets AniChan perform 2-way sync with your account.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "1. Tap 'Get Token' to open AniList developer authorization in your browser.\n" +
+                                "2. Log in and authorize AniChan.\n" +
+                                "3. Copy the token and paste it here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://anilist.co/api/v2/oauth/authorize?client_id=27495&response_type=token")
+                        )
+                        context.startActivity(intent)
+                        showTokenHelpDialog = false
+                    }
+                ) {
+                    Text("Open AniList Auth")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTokenHelpDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun AniListConnectCard(
+    accountState: AniListAccountState,
+    onConnectUsername: (String) -> Unit,
+    onConnectToken: (String) -> Unit,
+    onOpenTokenHelp: () -> Unit,
+    onOpenAniListAuthWeb: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var usernameInput by remember { mutableStateOf("") }
+    var tokenInput by remember { mutableStateOf("") }
+    var tokenVisible by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .testTag("anilist_connect_card"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF3DB4F2),
+                                    Color(0xFF1E88E5)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = "AniList Connect",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Connect AniList Account",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Sync & track what you've watched",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Method Tabs
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .height(40.dp)
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("Quick Username", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("API Token (2-Way)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (selectedTab == 0) {
+                // Tab 0: Username Sync
+                Text(
+                    text = "Enter your AniList username to instantly import and track all your watched anime, reading manga, scores, and status into AniChan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = usernameInput,
+                    onValueChange = { usernameInput = it },
+                    label = { Text("AniList Username") },
+                    placeholder = { Text("e.g. donyadav, spencer") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Username",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = {
+                        if (usernameInput.isNotBlank()) {
+                            IconButton(onClick = { usernameInput = "" }) {
+                                Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (usernameInput.isNotBlank() && !accountState.isSyncing) {
+                            onConnectUsername(usernameInput)
+                        }
+                    }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("anilist_username_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { onConnectUsername(usernameInput) },
+                    enabled = usernameInput.isNotBlank() && !accountState.isSyncing,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("anilist_username_connect_button")
+                ) {
+                    if (accountState.isSyncing) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Syncing Watchlist...", fontSize = 13.sp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Connect & Sync Watchlist", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                // Tab 1: Token Auth (2-Way)
+                Text(
+                    text = "Enables full 2-way live sync: whenever you update episode progress, score, or status in AniChan, it automatically updates your AniList.co account in real-time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = tokenInput,
+                    onValueChange = { tokenInput = it },
+                    label = { Text("AniList API Token") },
+                    placeholder = { Text("Paste your personal access token") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "Token",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { tokenVisible = !tokenVisible }) {
+                            Icon(
+                                imageVector = if (tokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (tokenVisible) "Hide Token" else "Show Token"
+                            )
+                        }
+                    },
+                    visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("anilist_token_input"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onOpenAniListAuthWeb,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag("anilist_get_token_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Get Token", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = { onConnectToken(tokenInput) },
+                        enabled = tokenInput.isNotBlank() && !accountState.isSyncing,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag("anilist_token_connect_button")
+                    ) {
+                        if (accountState.isSyncing) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Authorize", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                TextButton(
+                    onClick = onOpenTokenHelp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("How do I get an AniList token?", fontSize = 11.sp)
+                }
+            }
+
+            // Error Display
+            if (accountState.syncError != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = "Error",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = accountState.syncError ?: "Failed to connect",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AniListConnectedCard(
+    accountState: AniListAccountState,
+    onSyncNow: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .testTag("anilist_connected_card"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            // Header with User Avatar & Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+            ) {
+                // Banner Image
+                if (!accountState.bannerUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = accountState.bannerUrl,
+                        contentDescription = "Banner",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF0F172A),
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        Color(0xFF1E293B)
+                                    )
+                                )
+                            )
+                    )
+                }
+
+                // Dark overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.45f))
+                )
+
+                // User Info Overlay
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!accountState.avatarUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = accountState.avatarUrl,
+                                contentDescription = "Avatar",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = "Avatar",
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = accountState.userName ?: "AniList User",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (accountState.authType == AuthType.TOKEN_AUTH)
+                                    Color(0xFF10B981)
+                                else
+                                    Color(0xFF3DB4F2),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (accountState.authType == AuthType.TOKEN_AUTH) "2-WAY LIVE SYNC" else "WATCHLIST SYNC",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            if (accountState.userId != null) {
+                                Text(
+                                    text = "#${accountState.userId}",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Stats & Controls Body
+            Column(modifier = Modifier.padding(14.dp)) {
+                // 4-Card Statistics Grid
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AniListStatMiniCard(
+                        icon = Icons.Default.Movie,
+                        title = "Anime",
+                        value = "${accountState.animeCount}",
+                        subtitle = "${accountState.episodesWatched} eps",
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    AniListStatMiniCard(
+                        icon = Icons.Default.MenuBook,
+                        title = "Manga",
+                        value = "${accountState.mangaCount}",
+                        subtitle = "${accountState.chaptersRead} ch",
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    AniListStatMiniCard(
+                        icon = Icons.Default.Star,
+                        title = "Mean Score",
+                        value = if (accountState.animeMeanScore > 0f) "${"%.1f".format(accountState.animeMeanScore)}%" else "--",
+                        subtitle = "Average",
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    AniListStatMiniCard(
+                        icon = Icons.Default.Timer,
+                        title = "Watched",
+                        value = "${"%.1f".format(accountState.minutesWatched / (60f * 24f))}",
+                        subtitle = "Days",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Sync Status info
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDone,
+                        contentDescription = "Synced",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Last synced: ${formatRelativeTime(accountState.lastSyncTime)} • ${accountState.lastSyncCount} titles in library",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSyncNow,
+                        enabled = !accountState.isSyncing,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(40.dp)
+                            .testTag("anilist_sync_now_button")
+                    ) {
+                        if (accountState.isSyncing) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Syncing...", fontSize = 12.sp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Sync Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onOpenProfile,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .testTag("anilist_view_profile_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Profile", fontSize = 11.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = onDisconnect,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(0.9f)
+                            .height(40.dp)
+                            .testTag("anilist_disconnect_button"),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Disconnect",
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AniListStatMiniCard(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.sp,
+                maxLines = 1
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+fun formatRelativeTime(timestamp: Long): String {
+    if (timestamp <= 0L) return "Never"
+    val diff = System.currentTimeMillis() - timestamp
+    val seconds = diff / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+
+    return when {
+        seconds < 60 -> "Just now"
+        minutes < 60 -> "$minutes min ago"
+        hours < 24 -> "$hours hr ago"
+        else -> "$days d ago"
+    }
 }
 
 @Composable
@@ -606,13 +1462,23 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth()
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -633,20 +1499,20 @@ fun ThemeModeCard(
 ) {
     val borderColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        label = "border"
+        label = "theme_border"
     )
 
     Card(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .border(2.dp, borderColor, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .testTag("theme_mode_${title.lowercase()}"),
+            .testTag("theme_card_${title.lowercase()}"),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 1.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Row(
             modifier = Modifier

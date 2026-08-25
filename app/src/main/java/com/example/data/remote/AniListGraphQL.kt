@@ -1,6 +1,7 @@
 package com.example.data.remote
 
 import com.example.data.model.AiringScheduleItem
+import com.example.data.model.AniListUserProfile
 import com.example.data.model.CharacterItem
 import com.example.data.model.MediaItem
 import com.example.data.model.MediaRecommendation
@@ -9,12 +10,139 @@ import com.example.data.model.MediaStatus
 import com.example.data.model.MediaType
 import com.example.data.model.ReviewItem
 import com.example.data.model.StaffItem
+import com.example.data.model.UserMediaEntry
 import org.json.JSONArray
 import org.json.JSONObject
 
 object AniListGraphQL {
 
     const val BASE_URL = "https://graphql.anilist.co/"
+
+    val USER_BY_NAME_QUERY = """
+        query (${'$'}userName: String) {
+          User(name: ${'$'}userName) {
+            id
+            name
+            about
+            avatar {
+              large
+              medium
+            }
+            bannerImage
+            statistics {
+              anime {
+                count
+                meanScore
+                minutesWatched
+                episodesWatched
+              }
+              manga {
+                count
+                meanScore
+                chaptersRead
+                volumesRead
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+    val VIEWER_QUERY = """
+        query {
+          Viewer {
+            id
+            name
+            about
+            avatar {
+              large
+              medium
+            }
+            bannerImage
+            statistics {
+              anime {
+                count
+                meanScore
+                minutesWatched
+                episodesWatched
+              }
+              manga {
+                count
+                meanScore
+                chaptersRead
+                volumesRead
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+    val MEDIA_LIST_COLLECTION_QUERY = """
+        query (${'$'}userId: Int, ${'$'}userName: String, ${'$'}type: MediaType) {
+          MediaListCollection(userId: ${'$'}userId, userName: ${'$'}userName, type: ${'$'}type) {
+            lists {
+              name
+              isCustomList
+              status
+              entries {
+                id
+                mediaId
+                status
+                score(format: POINT_10_DECIMAL)
+                progress
+                progressVolumes
+                repeat
+                notes
+                updatedAt
+                media {
+                  id
+                  idMal
+                  title {
+                    romaji
+                    english
+                    native
+                  }
+                  type
+                  format
+                  status
+                  episodes
+                  chapters
+                  volumes
+                  coverImage {
+                    extraLarge
+                    large
+                    medium
+                  }
+                  bannerImage
+                  genres
+                  averageScore
+                }
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+    val SAVE_MEDIA_LIST_ENTRY_MUTATION = """
+        mutation (${'$'}mediaId: Int, ${'$'}status: MediaListStatus, ${'$'}score: Float, ${'$'}progress: Int, ${'$'}progressVolumes: Int, ${'$'}notes: String, ${'$'}repeat: Int) {
+          SaveMediaListEntry(mediaId: ${'$'}mediaId, status: ${'$'}status, score: ${'$'}score, progress: ${'$'}progress, progressVolumes: ${'$'}progressVolumes, notes: ${'$'}notes, repeat: ${'$'}repeat) {
+            id
+            mediaId
+            status
+            score
+            progress
+            progressVolumes
+            updatedAt
+          }
+        }
+    """.trimIndent()
+
+    val DELETE_MEDIA_LIST_ENTRY_MUTATION = """
+        mutation (${'$'}id: Int) {
+          DeleteMediaListEntry(id: ${'$'}id) {
+            deleted
+          }
+        }
+    """.trimIndent()
 
     val TRENDING_QUERY = """
         query (${'$'}page: Int, ${'$'}perPage: Int, ${'$'}type: MediaType) {
@@ -691,4 +819,142 @@ object AniListGraphQL {
         }
         return list
     }
+
+    fun parseUserProfile(jsonResponse: String): AniListUserProfile? {
+        return try {
+            val root = JSONObject(jsonResponse)
+            val data = root.optJSONObject("data") ?: return null
+            val user = data.optJSONObject("Viewer") ?: data.optJSONObject("User") ?: return null
+            val id = user.optInt("id", 0)
+            val name = user.optString("name", "")
+            val about = user.optString("about", "")
+            val avatar = user.optJSONObject("avatar")
+            val avatarUrl = avatar?.optString("large") ?: avatar?.optString("medium") ?: ""
+            val bannerUrl = user.optString("bannerImage", "")
+
+            val stats = user.optJSONObject("statistics")
+            val animeStats = stats?.optJSONObject("anime")
+            val mangaStats = stats?.optJSONObject("manga")
+
+            val animeCount = animeStats?.optInt("count", 0) ?: 0
+            val episodesWatched = animeStats?.optInt("episodesWatched", 0) ?: 0
+            val minutesWatched = animeStats?.optInt("minutesWatched", 0) ?: 0
+            val animeMeanScore = animeStats?.optDouble("meanScore", 0.0)?.toFloat() ?: 0f
+
+            val mangaCount = mangaStats?.optInt("count", 0) ?: 0
+            val chaptersRead = mangaStats?.optInt("chaptersRead", 0) ?: 0
+            val volumesRead = mangaStats?.optInt("volumesRead", 0) ?: 0
+            val mangaMeanScore = mangaStats?.optDouble("meanScore", 0.0)?.toFloat() ?: 0f
+
+            AniListUserProfile(
+                id = id,
+                name = name,
+                avatarUrl = avatarUrl,
+                bannerUrl = bannerUrl.ifBlank { null },
+                about = about,
+                animeCount = animeCount,
+                episodesWatched = episodesWatched,
+                minutesWatched = minutesWatched,
+                animeMeanScore = animeMeanScore,
+                mangaCount = mangaCount,
+                chaptersRead = chaptersRead,
+                volumesRead = volumesRead,
+                mangaMeanScore = mangaMeanScore
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun parseUserMediaList(jsonResponse: String, defaultType: String = "ANIME"): List<UserMediaEntry> {
+        val result = mutableListOf<UserMediaEntry>()
+        try {
+            val root = JSONObject(jsonResponse)
+            val data = root.optJSONObject("data") ?: return emptyList()
+            val collection = data.optJSONObject("MediaListCollection") ?: return emptyList()
+            val lists = collection.optJSONArray("lists") ?: return emptyList()
+
+            for (i in 0 until lists.length()) {
+                val listObj = lists.optJSONObject(i) ?: continue
+                val entries = listObj.optJSONArray("entries") ?: continue
+
+                for (j in 0 until entries.length()) {
+                    val entryObj = entries.optJSONObject(j) ?: continue
+                    val mediaId = entryObj.optInt("mediaId", 0)
+                    if (mediaId == 0) continue
+
+                    val anilistStatus = entryObj.optString("status", "CURRENT")
+                    val status = when (anilistStatus) {
+                        "CURRENT" -> "WATCHING"
+                        "COMPLETED" -> "COMPLETED"
+                        "PLANNING" -> "PLANNING"
+                        "PAUSED" -> "PAUSED"
+                        "DROPPED" -> "DROPPED"
+                        "REPEATING" -> "REWATCHING"
+                        else -> "WATCHING"
+                    }
+
+                    val score = entryObj.optDouble("score", 0.0).toFloat()
+                    val progress = entryObj.optInt("progress", 0)
+                    val progressVolumes = entryObj.optInt("progressVolumes", 0)
+                    val repeat = entryObj.optInt("repeat", 0)
+                    val notes = entryObj.optString("notes", "")
+                    val updatedAt = entryObj.optLong("updatedAt", System.currentTimeMillis() / 1000) * 1000
+
+                    val mediaObj = entryObj.optJSONObject("media")
+                    val titleObj = mediaObj?.optJSONObject("title")
+                    val title = titleObj?.optString("english")?.ifBlank { null }
+                        ?: titleObj?.optString("romaji")
+                        ?: "Untitled"
+
+                    val mediaType = mediaObj?.optString("type", defaultType) ?: defaultType
+                    val format = mediaObj?.optString("format", "TV") ?: "TV"
+                    val episodes = if (mediaObj?.has("episodes") == true && !mediaObj.isNull("episodes")) mediaObj.optInt("episodes") else null
+                    val chapters = if (mediaObj?.has("chapters") == true && !mediaObj.isNull("chapters")) mediaObj.optInt("chapters") else null
+
+                    val coverObj = mediaObj?.optJSONObject("coverImage")
+                    val coverImage = coverObj?.optString("extraLarge")
+                        ?: coverObj?.optString("large")
+                        ?: coverObj?.optString("medium")
+                        ?: ""
+                    val bannerImage = mediaObj?.optString("bannerImage", "")?.ifBlank { null }
+
+                    val genresArr = mediaObj?.optJSONArray("genres")
+                    val genresList = mutableListOf<String>()
+                    if (genresArr != null) {
+                        for (g in 0 until genresArr.length()) {
+                            genresList.add(genresArr.optString(g))
+                        }
+                    }
+
+                    result.add(
+                        UserMediaEntry(
+                            mediaId = mediaId,
+                            type = mediaType,
+                            title = title,
+                            coverImage = coverImage,
+                            bannerImage = bannerImage,
+                            totalEpisodes = episodes,
+                            totalChapters = chapters,
+                            progress = progress,
+                            volumesProgress = progressVolumes,
+                            status = status,
+                            score = score,
+                            isFavorite = false,
+                            notes = notes,
+                            repeatCount = repeat,
+                            format = format,
+                            genresCsv = genresList.joinToString(","),
+                            updatedAt = updatedAt
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
+    }
 }
+

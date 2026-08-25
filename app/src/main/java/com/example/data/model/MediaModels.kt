@@ -183,3 +183,26 @@ data class SearchResult(
     val totalCount: Int = 0,
     val currentPage: Int = 1
 )
+
+enum class AuthType {
+    NONE,
+    USERNAME_SYNC,
+    TOKEN_AUTH
+}
+
+data class AniListUserProfile(
+    val id: Int,
+    val name: String,
+    val avatarUrl: String = "",
+    val bannerUrl: String? = null,
+    val about: String = "",
+    val animeCount: Int = 0,
+    val episodesWatched: Int = 0,
+    val minutesWatched: Int = 0,
+    val animeMeanScore: Float = 0f,
+    val mangaCount: Int = 0,
+    val chaptersRead: Int = 0,
+    val volumesRead: Int = 0,
+    val mangaMeanScore: Float = 0f
+)
+

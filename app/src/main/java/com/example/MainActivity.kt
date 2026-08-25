@@ -24,9 +24,15 @@ class MainActivity : ComponentActivity() {
 
         val database = AppDatabase.getInstance(applicationContext)
         val apiService = AniListApiService()
-        val repository = AniListRepository(
+        val accountManager = com.example.data.account.AniListAccountManager.getInstance(
+            context = applicationContext,
             apiService = apiService,
             userMediaDao = database.userMediaDao()
+        )
+        val repository = AniListRepository(
+            apiService = apiService,
+            userMediaDao = database.userMediaDao(),
+            accountManager = accountManager
         )
         val themePreferences = ThemePreferences.getInstance(applicationContext)
 
@@ -40,7 +46,8 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AniChanApp(
                         repository = repository,
-                        themePreferences = themePreferences
+                        themePreferences = themePreferences,
+                        accountManager = accountManager
                     )
                 }
             }

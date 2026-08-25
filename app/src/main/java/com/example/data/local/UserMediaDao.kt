@@ -34,6 +34,9 @@ interface UserMediaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(entry: UserMediaEntry)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateAll(entries: List<UserMediaEntry>)
+
     @Update
     suspend fun update(entry: UserMediaEntry)
 

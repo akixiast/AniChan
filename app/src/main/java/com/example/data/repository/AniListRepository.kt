@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.util.Log
+import com.example.data.account.AniListAccountManager
 import com.example.data.local.UserMediaDao
 import com.example.data.model.AiringScheduleItem
 import com.example.data.model.MediaItem
@@ -14,7 +15,8 @@ import java.util.Calendar
 
 class AniListRepository(
     private val apiService: AniListApiService,
-    private val userMediaDao: UserMediaDao
+    private val userMediaDao: UserMediaDao,
+    private val accountManager: AniListAccountManager? = null
 ) {
 
     suspend fun getTrending(type: MediaType = MediaType.ANIME, page: Int = 1, perPage: Int = 20): Result<List<MediaItem>> {
@@ -213,17 +215,46 @@ class AniListRepository(
         }
     }
 
-    // Room Database Operations
+    // Room Database Operations & AniList Cloud Sync
     fun getAllUserEntries(): Flow<List<UserMediaEntry>> = userMediaDao.getAllEntries()
 
     fun getUserEntry(mediaId: Int): Flow<UserMediaEntry?> = userMediaDao.getEntryFlow(mediaId)
 
     suspend fun saveUserEntry(entry: UserMediaEntry) {
         userMediaDao.insertOrUpdate(entry)
+        try {
+            accountManager?.saveMediaToAniList(
+                mediaId = entry.mediaId,
+                status = entry.watchStatus,
+                progress = entry.progress,
+                progressVolumes = entry.volumesProgress,
+                score = entry.score,
+                notes = entry.notes,
+                repeat = entry.repeatCount
+            )
+        } catch (e: Exception) {
+            Log.w("AniListRepository", "Cloud sync save entry failed: ${e.message}")
+        }
     }
 
     suspend fun updateProgress(mediaId: Int, progress: Int) {
         userMediaDao.updateProgress(mediaId, progress)
+        try {
+            val entry = userMediaDao.getEntryById(mediaId)
+            if (entry != null) {
+                accountManager?.saveMediaToAniList(
+                    mediaId = mediaId,
+                    status = entry.watchStatus,
+                    progress = progress,
+                    progressVolumes = entry.volumesProgress,
+                    score = entry.score,
+                    notes = entry.notes,
+                    repeat = entry.repeatCount
+                )
+            }
+        } catch (e: Exception) {
+            Log.w("AniListRepository", "Cloud sync update progress failed: ${e.message}")
+        }
     }
 
     suspend fun updateFavorite(mediaId: Int, isFavorite: Boolean) {
