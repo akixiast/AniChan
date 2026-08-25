@@ -1,0 +1,6 @@
+{
+  "name": "AniChan",
+  "description": "An all-in-one AniList & AL-Chan anime and manga tracker, seasonal explorer, airing schedule calendar, and personal watchlist manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

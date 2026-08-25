@@ -1,0 +1,211 @@
+package com.example.data.repository
+
+import android.util.Log
+import com.example.data.local.UserMediaDao
+import com.example.data.model.AiringScheduleItem
+import com.example.data.model.MediaItem
+import com.example.data.model.MediaType
+import com.example.data.model.UserMediaEntry
+import com.example.data.remote.AniListApiService
+import com.example.data.remote.AniListGraphQL
+import com.example.data.remote.OfflineSeedData
+import kotlinx.coroutines.flow.Flow
+import java.util.Calendar
+
+class AniListRepository(
+    private val apiService: AniListApiService,
+    private val userMediaDao: UserMediaDao
+) {
+
+    suspend fun getTrending(type: MediaType = MediaType.ANIME, page: Int = 1, perPage: Int = 20): Result<List<MediaItem>> {
+        return try {
+            val vars = mapOf(
+                "page" to page,
+                "perPage" to perPage,
+                "type" to type.apiValue
+            )
+            val json = apiService.executeGraphQL(AniListGraphQL.TRENDING_QUERY, vars)
+            val list = AniListGraphQL.parseMediaList(json)
+            if (list.isNotEmpty()) {
+                Result.success(list)
+            } else {
+                val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
+                Result.success(seed)
+            }
+        } catch (e: Exception) {
+            Log.w("AniListRepository", "getTrending error: ${e.message}, using seed fallback")
+            val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
+            Result.success(seed)
+        }
+    }
+
+    suspend fun getSeasonal(
+        season: String = getCurrentSeason(),
+        year: Int = getCurrentYear(),
+        page: Int = 1,
+        perPage: Int = 20
+    ): Result<List<MediaItem>> {
+        return try {
+            val vars = mapOf(
+                "season" to season,
+                "seasonYear" to year,
+                "page" to page,
+                "perPage" to perPage
+            )
+            val json = apiService.executeGraphQL(AniListGraphQL.SEASONAL_QUERY, vars)
+            val list = AniListGraphQL.parseMediaList(json)
+            if (list.isNotEmpty()) {
+                Result.success(list)
+            } else {
+                Result.success(OfflineSeedData.trendingAnime)
+            }
+        } catch (e: Exception) {
+            Log.w("AniListRepository", "getSeasonal error: ${e.message}")
+            Result.success(OfflineSeedData.trendingAnime)
+        }
+    }
+
+    suspend fun getPopular(type: MediaType = MediaType.ANIME, page: Int = 1, perPage: Int = 20): Result<List<MediaItem>> {
+        return try {
+            val vars = mapOf(
+                "page" to page,
+                "perPage" to perPage,
+                "type" to type.apiValue
+            )
+            val json = apiService.executeGraphQL(AniListGraphQL.POPULAR_QUERY, vars)
+            val list = AniListGraphQL.parseMediaList(json)
+            if (list.isNotEmpty()) {
+                Result.success(list)
+            } else {
+                val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
+                Result.success(seed)
+            }
+        } catch (e: Exception) {
+            val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
+            Result.success(seed)
+        }
+    }
+
+    suspend fun searchMedia(
+        query: String?,
+        type: MediaType = MediaType.ANIME,
+        genre: String? = null,
+        season: String? = null,
+        seasonYear: Int? = null,
+        format: String? = null,
+        status: String? = null,
+        sort: String = "POPULARITY_DESC",
+        page: Int = 1,
+        perPage: Int = 24
+    ): Result<List<MediaItem>> {
+        return try {
+            val vars = mutableMapOf<String, Any?>(
+                "type" to type.apiValue,
+                "sort" to listOf(sort),
+                "page" to page,
+                "perPage" to perPage
+            )
+            if (!query.isNullOrBlank()) vars["search"] = query.trim()
+            if (!genre.isNullOrBlank()) vars["genre"] = genre
+            if (!season.isNullOrBlank()) vars["season"] = season
+            if (seasonYear != null && seasonYear > 1960) vars["seasonYear"] = seasonYear
+            if (!format.isNullOrBlank()) vars["format"] = format
+            if (!status.isNullOrBlank()) vars["status"] = status
+
+            val json = apiService.executeGraphQL(AniListGraphQL.SEARCH_QUERY, vars)
+            val list = AniListGraphQL.parseMediaList(json)
+            Result.success(list)
+        } catch (e: Exception) {
+            Log.e("AniListRepository", "searchMedia error", e)
+            // Filter local seed data on error
+            val seed = if (type == MediaType.ANIME) OfflineSeedData.trendingAnime else OfflineSeedData.trendingManga
+            val filtered = if (!query.isNullOrBlank()) {
+                seed.filter { it.displayTitle.contains(query, ignoreCase = true) || it.titleRomaji.contains(query, ignoreCase = true) }
+            } else {
+                seed
+            }
+            Result.success(filtered)
+        }
+    }
+
+    suspend fun getMediaDetails(mediaId: Int): Result<MediaItem> {
+        return try {
+            val vars = mapOf("id" to mediaId)
+            val json = apiService.executeGraphQL(AniListGraphQL.DETAILS_QUERY, vars)
+            val item = AniListGraphQL.parseSingleMedia(json)
+            if (item != null) {
+                Result.success(item)
+            } else {
+                val fallback = OfflineSeedData.trendingAnime.find { it.id == mediaId }
+                    ?: OfflineSeedData.trendingManga.find { it.id == mediaId }
+                    ?: OfflineSeedData.trendingAnime.first()
+                Result.success(fallback)
+            }
+        } catch (e: Exception) {
+            Log.e("AniListRepository", "getMediaDetails error", e)
+            val fallback = OfflineSeedData.trendingAnime.find { it.id == mediaId }
+                ?: OfflineSeedData.trendingManga.find { it.id == mediaId }
+                ?: OfflineSeedData.trendingAnime.first()
+            Result.success(fallback)
+        }
+    }
+
+    suspend fun getAiringSchedule(
+        startTimeSeconds: Long,
+        endTimeSeconds: Long,
+        page: Int = 1,
+        perPage: Int = 40
+    ): Result<List<AiringScheduleItem>> {
+        return try {
+            val vars = mapOf(
+                "airingAtGreater" to startTimeSeconds.toInt(),
+                "airingAtLesser" to endTimeSeconds.toInt(),
+                "page" to page,
+                "perPage" to perPage
+            )
+            val json = apiService.executeGraphQL(AniListGraphQL.AIRING_SCHEDULE_QUERY, vars)
+            val list = AniListGraphQL.parseAiringSchedule(json)
+            Result.success(list)
+        } catch (e: Exception) {
+            Log.e("AniListRepository", "getAiringSchedule error", e)
+            Result.success(emptyList())
+        }
+    }
+
+    // Room Database Operations
+    fun getAllUserEntries(): Flow<List<UserMediaEntry>> = userMediaDao.getAllEntries()
+
+    fun getUserEntry(mediaId: Int): Flow<UserMediaEntry?> = userMediaDao.getEntryFlow(mediaId)
+
+    suspend fun saveUserEntry(entry: UserMediaEntry) {
+        userMediaDao.insertOrUpdate(entry)
+    }
+
+    suspend fun updateProgress(mediaId: Int, progress: Int) {
+        userMediaDao.updateProgress(mediaId, progress)
+    }
+
+    suspend fun updateFavorite(mediaId: Int, isFavorite: Boolean) {
+        userMediaDao.updateFavorite(mediaId, isFavorite)
+    }
+
+    suspend fun deleteUserEntry(mediaId: Int) {
+        userMediaDao.deleteById(mediaId)
+    }
+
+    companion object {
+        fun getCurrentSeason(): String {
+            val month = Calendar.getInstance().get(Calendar.MONTH) // 0-11
+            return when (month) {
+                11, 0, 1 -> "WINTER"
+                2, 3, 4 -> "SPRING"
+                5, 6, 7 -> "SUMMER"
+                else -> "FALL"
+            }
+        }
+
+        fun getCurrentYear(): Int {
+            return Calendar.getInstance().get(Calendar.YEAR)
+        }
+    }
+}
