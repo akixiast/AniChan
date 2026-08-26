@@ -433,7 +433,6 @@ fun TrackMediaBottomSheet(
                             status = status.name,
                             score = score,
                             isFavorite = isFavorite,
-                            isAddedLocally = true,
                             notes = notes,
                             repeatCount = repeatCount,
                             format = media.format,

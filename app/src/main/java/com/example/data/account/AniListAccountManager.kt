@@ -298,77 +298,9 @@ class AniListAccountManager(
             Log.e("AniListAccountManager", "Failed to fetch manga list", e)
         }
 
-        // 3. Merge with local Room Database state and preserve local progress & clean-library flags
-        val localEntriesMap = try {
-            userMediaDao.getAllEntriesDirect().associateBy { it.mediaId }
-        } catch (e: Exception) {
-            emptyMap()
-        }
-
-        val entriesToSyncRemote = mutableListOf<UserMediaEntry>()
-        val mergedEntries = allEntries.map { remoteEntry ->
-            val local = localEntriesMap[remoteEntry.mediaId]
-            if (local != null) {
-                // If local progress is ahead of remote progress, preserve local progress and auto-sync to AniList
-                val isLocalAhead = local.progress > remoteEntry.progress
-                val finalProgress = if (isLocalAhead) local.progress else remoteEntry.progress
-                
-                // Do not downgrade or change status if already completed in app or rewatching
-                val isLocalCompletedOrRewatching = local.status == "COMPLETED" || local.status == "REWATCHING"
-                val finalStatus = if (isLocalCompletedOrRewatching && remoteEntry.status != "COMPLETED") {
-                    local.status
-                } else if (isLocalAhead && local.status == "COMPLETED") {
-                    "COMPLETED"
-                } else {
-                    remoteEntry.status
-                }
-
-                val finalEntry = remoteEntry.copy(
-                    isAddedLocally = local.isAddedLocally || isLocalAhead,
-                    isFavorite = local.isFavorite,
-                    progress = finalProgress,
-                    status = finalStatus,
-                    repeatCount = if (local.repeatCount > remoteEntry.repeatCount) local.repeatCount else remoteEntry.repeatCount,
-                    notes = if (local.notes.isNotBlank() && remoteEntry.notes.isBlank()) local.notes else remoteEntry.notes
-                )
-
-                if (isLocalAhead && !token.isNullOrBlank()) {
-                    entriesToSyncRemote.add(finalEntry)
-                }
-
-                finalEntry
-            } else {
-                remoteEntry.copy(isAddedLocally = false)
-            }
-        }
-
-        // Also preserve locally added entries that may not be on remote yet
-        val remoteIds = allEntries.map { it.mediaId }.toSet()
-        val localOnlyEntries = localEntriesMap.values.filter { it.mediaId !in remoteIds }
-
-        val finalEntriesToSave = mergedEntries + localOnlyEntries
-
-        if (finalEntriesToSave.isNotEmpty()) {
-            userMediaDao.insertOrUpdateAll(finalEntriesToSave)
-        }
-
-        // Auto sync entries that are ahead to AniList
-        if (entriesToSyncRemote.isNotEmpty() && !token.isNullOrBlank()) {
-            for (entry in entriesToSyncRemote) {
-                try {
-                    saveMediaToAniList(
-                        mediaId = entry.mediaId,
-                        status = entry.watchStatus,
-                        progress = entry.progress,
-                        progressVolumes = entry.volumesProgress,
-                        score = entry.score,
-                        notes = entry.notes,
-                        repeat = entry.repeatCount
-                    )
-                } catch (e: Exception) {
-                    Log.w("AniListAccountManager", "Auto-sync ahead entry failed for ${entry.mediaId}: ${e.message}")
-                }
-            }
+        // 3. Batch insert/update into Room Database
+        if (allEntries.isNotEmpty()) {
+            userMediaDao.insertOrUpdateAll(allEntries)
         }
 
         // 4. Update Profile Statistics

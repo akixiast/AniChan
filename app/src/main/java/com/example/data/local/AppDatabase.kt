@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.UserMediaEntry
 
-@Database(entities = [UserMediaEntry::class], version = 2, exportSchema = false)
+@Database(entities = [UserMediaEntry::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userMediaDao(): UserMediaDao
 
@@ -20,9 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "anichan_database"
-                )
-                .fallbackToDestructiveMigration()
-                .build()
+                ).build()
                 INSTANCE = instance
                 instance
             }

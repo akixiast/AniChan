@@ -90,6 +90,7 @@ fun LibraryScreen(
     var entryToEdit by remember { mutableStateOf<UserMediaEntry?>(null) }
 
     val statusTabs = listOf(
+        "ALL" to "All",
         "WATCHING" to "Watching / Reading",
         "COMPLETED" to "Completed",
         "PLANNING" to "Planning",
@@ -224,15 +225,17 @@ fun LibraryScreen(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Clean Library Mode Toggle Chip
-                FilterChip(
-                    selected = filter.cleanLibraryMode,
-                    onClick = { viewModel.toggleCleanLibraryMode() },
-                    label = { Text(if (filter.cleanLibraryMode) "Clean Library" else "All AniList", fontSize = 11.sp) },
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.testTag("clean_library_chip")
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+                // Quick Toggle Hide Completed if in ALL tab
+                if (filter.status == "ALL") {
+                    FilterChip(
+                        selected = filter.hideCompletedInAll,
+                        onClick = { viewModel.toggleHideCompleted() },
+                        label = { Text("Hide Watched", fontSize = 11.sp) },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("hide_watched_chip")
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
 
                 // Sort Dropdown button
                 val nextSort = when (filter.sort) {
@@ -277,11 +280,7 @@ fun LibraryScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (filter.cleanLibraryMode) {
-                                "Clean Library mode is active (only showing anime added in app). Tap 'Clean Library' above to see all AniList entries."
-                            } else {
-                                "Add anime or manga to your watchlist to start tracking progress!"
-                            },
+                            text = "Add anime or manga to your watchlist to start tracking progress!",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -308,7 +307,6 @@ fun LibraryScreen(
                             onCardClick = { onNavigateToDetail(entry.mediaId) },
                             onEditClick = { entryToEdit = entry },
                             onIncrementProgress = { viewModel.incrementProgress(entry) },
-                            onDecrementProgress = { viewModel.decrementProgress(entry) },
                             onToggleFavorite = { viewModel.toggleFavorite(entry) },
                             modifier = Modifier.animateItem()
                         )

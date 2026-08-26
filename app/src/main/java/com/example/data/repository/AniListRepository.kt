@@ -223,17 +223,16 @@ class AniListRepository(
     fun getUserEntry(mediaId: Int): Flow<UserMediaEntry?> = userMediaDao.getEntryFlow(mediaId)
 
     suspend fun saveUserEntry(entry: UserMediaEntry) {
-        val entryToSave = entry.copy(isAddedLocally = true)
-        userMediaDao.insertOrUpdate(entryToSave)
+        userMediaDao.insertOrUpdate(entry)
         try {
             accountManager?.saveMediaToAniList(
-                mediaId = entryToSave.mediaId,
-                status = entryToSave.watchStatus,
-                progress = entryToSave.progress,
-                progressVolumes = entryToSave.volumesProgress,
-                score = entryToSave.score,
-                notes = entryToSave.notes,
-                repeat = entryToSave.repeatCount
+                mediaId = entry.mediaId,
+                status = entry.watchStatus,
+                progress = entry.progress,
+                progressVolumes = entry.volumesProgress,
+                score = entry.score,
+                notes = entry.notes,
+                repeat = entry.repeatCount
             )
         } catch (e: Exception) {
             Log.w("AniListRepository", "Cloud sync save entry failed: ${e.message}")
@@ -241,29 +240,22 @@ class AniListRepository(
     }
 
     suspend fun updateProgress(mediaId: Int, progress: Int) {
-        val current = userMediaDao.getEntryById(mediaId)
-        if (current != null) {
-            val updated = current.copy(
-                progress = progress,
-                isAddedLocally = true,
-                updatedAt = System.currentTimeMillis()
-            )
-            userMediaDao.insertOrUpdate(updated)
-            try {
+        userMediaDao.updateProgress(mediaId, progress)
+        try {
+            val entry = userMediaDao.getEntryById(mediaId)
+            if (entry != null) {
                 accountManager?.saveMediaToAniList(
                     mediaId = mediaId,
-                    status = updated.watchStatus,
+                    status = entry.watchStatus,
                     progress = progress,
-                    progressVolumes = updated.volumesProgress,
-                    score = updated.score,
-                    notes = updated.notes,
-                    repeat = updated.repeatCount
+                    progressVolumes = entry.volumesProgress,
+                    score = entry.score,
+                    notes = entry.notes,
+                    repeat = entry.repeatCount
                 )
-            } catch (e: Exception) {
-                Log.w("AniListRepository", "Cloud sync update progress failed: ${e.message}")
             }
-        } else {
-            userMediaDao.updateProgress(mediaId, progress)
+        } catch (e: Exception) {
+            Log.w("AniListRepository", "Cloud sync update progress failed: ${e.message}")
         }
     }
 
