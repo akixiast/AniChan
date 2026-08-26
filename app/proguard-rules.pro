@@ -16,8 +16,6 @@
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable
 
-# Data classes for Room and AniList models
--keep class com.example.data.model.** { *; }
--keep class com.example.data.local.** { *; }
--keep class com.example.data.remote.** { *; }
--dontwarn com.example.data.**
+# If you keep the line number information, uncomment this to
+# hide the original source file name.
+#-renamesourcefileattribute SourceFile

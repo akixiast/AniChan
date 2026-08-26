@@ -971,6 +971,7 @@ object AniListGraphQL {
                             status = status,
                             score = score,
                             isFavorite = false,
+                            isAddedLocally = false,
                             notes = notes,
                             repeatCount = repeat,
                             format = format,

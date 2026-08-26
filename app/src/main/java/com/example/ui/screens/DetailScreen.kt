@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -291,6 +292,7 @@ fun DetailScreen(
                         userEntry = userEntry,
                         onOpenTrackSheet = { viewModel.setTrackingSheetOpen(true) },
                         onQuickIncrement = { viewModel.quickIncrementProgress() },
+                        onQuickDecrement = { viewModel.quickDecrementProgress() },
                         onToggleFavorite = { viewModel.toggleFavorite() },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
@@ -590,6 +592,7 @@ fun DetailTrackerCard(
     userEntry: UserMediaEntry?,
     onOpenTrackSheet: () -> Unit,
     onQuickIncrement: () -> Unit,
+    onQuickDecrement: () -> Unit = {},
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -638,18 +641,26 @@ fun DetailTrackerCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     FilledTonalIconButton(
-                        onClick = onQuickIncrement,
-                        modifier = Modifier.size(38.dp).testTag("detail_quick_increment")
+                        onClick = onQuickDecrement,
+                        enabled = userEntry.progress > 0,
+                        modifier = Modifier.size(36.dp).testTag("detail_quick_decrement")
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Episode")
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease Episode", modifier = Modifier.size(18.dp))
+                    }
+
+                    FilledTonalIconButton(
+                        onClick = onQuickIncrement,
+                        modifier = Modifier.size(36.dp).testTag("detail_quick_increment")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Episode", modifier = Modifier.size(18.dp))
                     }
 
                     IconButton(
                         onClick = onToggleFavorite,
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = if (userEntry.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -661,11 +672,11 @@ fun DetailTrackerCard(
                     Button(
                         onClick = onOpenTrackSheet,
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(38.dp).testTag("detail_edit_button")
+                        modifier = Modifier.height(36.dp).testTag("detail_edit_button")
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Edit", fontSize = 12.sp)
+                        Text("Edit", fontSize = 11.sp)
                     }
                 }
             }

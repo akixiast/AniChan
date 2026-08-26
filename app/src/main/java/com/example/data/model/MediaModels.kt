@@ -146,6 +146,7 @@ data class UserMediaEntry(
     val status: String = "WATCHING", // WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING
     val score: Float = 0f, // 0.0 to 10.0 or 0 to 100
     val isFavorite: Boolean = false,
+    val isAddedLocally: Boolean = true, // true if explicitly added or tracked in-app
     val notes: String = "",
     val repeatCount: Int = 0,
     val format: String = "TV",

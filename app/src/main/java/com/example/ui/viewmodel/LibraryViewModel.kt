@@ -26,10 +26,10 @@ enum class LibrarySort(val displayName: String) {
 
 data class LibraryFilter(
     val mediaType: String = "ALL", // ALL, ANIME, MANGA
-    val status: String = "ALL", // ALL, WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING, FAVORITES
+    val status: String = "WATCHING", // WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING, FAVORITES
     val searchQuery: String = "",
     val sort: LibrarySort = LibrarySort.TITLE,
-    val hideCompletedInAll: Boolean = false
+    val cleanLibraryMode: Boolean = true
 )
 
 class LibraryViewModel(
@@ -41,7 +41,8 @@ class LibraryViewModel(
 
     private val _filter = MutableStateFlow(
         LibraryFilter(
-            hideCompletedInAll = prefs.getBoolean("hide_completed_in_all", false)
+            status = "WATCHING",
+            cleanLibraryMode = prefs.getBoolean("clean_library_mode", true)
         )
     )
     val filter: StateFlow<LibraryFilter> = _filter.asStateFlow()
@@ -51,19 +52,20 @@ class LibraryViewModel(
     val filteredEntries: StateFlow<List<UserMediaEntry>> = combine(_allEntries, _filter) { entries, filter ->
         var list = entries
 
+        // Clean Library Mode: Hide all anime imported/added by AniList, keeping only anime added in-app
+        if (filter.cleanLibraryMode) {
+            list = list.filter { it.isAddedLocally }
+        }
+
         // Type filter
         if (filter.mediaType != "ALL") {
             list = list.filter { it.type == filter.mediaType }
         }
 
-        // Status / Favorite / Hide Completed filter
+        // Status / Favorite filter
         if (filter.status == "FAVORITES") {
             list = list.filter { it.isFavorite }
-        } else if (filter.status == "ALL") {
-            if (filter.hideCompletedInAll) {
-                list = list.filter { it.status != "COMPLETED" }
-            }
-        } else {
+        } else if (filter.status != "ALL") {
             list = list.filter { it.status == filter.status }
         }
 
@@ -85,14 +87,15 @@ class LibraryViewModel(
         initialValue = emptyList()
     )
 
-    val stats: StateFlow<LibraryStats> = _allEntries.combine(_filter) { entries, _ ->
-        val animeList = entries.filter { it.type == "ANIME" }
-        val mangaList = entries.filter { it.type == "MANGA" }
+    val stats: StateFlow<LibraryStats> = _allEntries.combine(_filter) { entries, filter ->
+        val effectiveEntries = if (filter.cleanLibraryMode) entries.filter { it.isAddedLocally } else entries
+        val animeList = effectiveEntries.filter { it.type == "ANIME" }
+        val mangaList = effectiveEntries.filter { it.type == "MANGA" }
 
         val totalEpisodes = animeList.sumOf { it.progress }
         val totalChapters = mangaList.sumOf { it.progress }
 
-        val ratedEntries = entries.filter { it.score > 0f }
+        val ratedEntries = effectiveEntries.filter { it.score > 0f }
         val meanScore = if (ratedEntries.isNotEmpty()) {
             ratedEntries.map { it.score }.average().toFloat()
         } else {
@@ -134,15 +137,15 @@ class LibraryViewModel(
         _filter.value = _filter.value.copy(sort = sort)
     }
 
-    fun toggleHideCompleted() {
-        val newVal = !_filter.value.hideCompletedInAll
-        _filter.value = _filter.value.copy(hideCompletedInAll = newVal)
-        prefs.edit().putBoolean("hide_completed_in_all", newVal).apply()
+    fun toggleCleanLibraryMode() {
+        val newVal = !_filter.value.cleanLibraryMode
+        _filter.value = _filter.value.copy(cleanLibraryMode = newVal)
+        prefs.edit().putBoolean("clean_library_mode", newVal).apply()
     }
 
-    fun setHideCompleted(hide: Boolean) {
-        _filter.value = _filter.value.copy(hideCompletedInAll = hide)
-        prefs.edit().putBoolean("hide_completed_in_all", hide).apply()
+    fun setCleanLibraryMode(clean: Boolean) {
+        _filter.value = _filter.value.copy(cleanLibraryMode = clean)
+        prefs.edit().putBoolean("clean_library_mode", clean).apply()
     }
 
     fun incrementProgress(entry: UserMediaEntry) {
@@ -151,10 +154,46 @@ class LibraryViewModel(
             val max = total ?: 9999
             if (entry.progress < max) {
                 val newProgress = entry.progress + 1
-                val newStatus = if (total != null && newProgress >= total) "COMPLETED" else entry.status
+                val newStatus = if (entry.status == "COMPLETED" || entry.status == "REWATCHING") {
+                    entry.status
+                } else if (total != null && newProgress >= total) {
+                    "COMPLETED"
+                } else {
+                    entry.status
+                }
                 val updatedEntry = entry.copy(
                     progress = newProgress,
                     status = newStatus,
+                    isAddedLocally = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.saveUserEntry(updatedEntry)
+            } else if (entry.status == "COMPLETED") {
+                // Keep COMPLETED, increment repeat count
+                val updatedEntry = entry.copy(
+                    repeatCount = entry.repeatCount + 1,
+                    isAddedLocally = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.saveUserEntry(updatedEntry)
+            }
+        }
+    }
+
+    fun decrementProgress(entry: UserMediaEntry) {
+        viewModelScope.launch {
+            if (entry.progress > 0) {
+                val newProgress = entry.progress - 1
+                val total = if (entry.type == "MANGA") entry.totalChapters else entry.totalEpisodes
+                val newStatus = if (entry.status == "COMPLETED" && total != null && newProgress < total) {
+                    "WATCHING"
+                } else {
+                    entry.status
+                }
+                val updatedEntry = entry.copy(
+                    progress = newProgress,
+                    status = newStatus,
+                    isAddedLocally = true,
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.saveUserEntry(updatedEntry)

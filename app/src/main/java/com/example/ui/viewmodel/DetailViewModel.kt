@@ -76,11 +76,27 @@ class DetailViewModel(
                 val max = total ?: 9999
                 if (entry.progress < max) {
                     val newProgress = entry.progress + 1
-                    val newStatus = if (total != null && newProgress >= total) "COMPLETED" else entry.status
+                    val newStatus = if (entry.status == "COMPLETED" || entry.status == "REWATCHING") {
+                        entry.status
+                    } else if (total != null && newProgress >= total) {
+                        "COMPLETED"
+                    } else {
+                        entry.status
+                    }
                     repository.saveUserEntry(
                         entry.copy(
                             progress = newProgress,
                             status = newStatus,
+                            isAddedLocally = true,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                    )
+                } else if (entry.status == "COMPLETED") {
+                    // Already completed: increment rewatch count without changing status
+                    repository.saveUserEntry(
+                        entry.copy(
+                            repeatCount = entry.repeatCount + 1,
+                            isAddedLocally = true,
                             updatedAt = System.currentTimeMillis()
                         )
                     )
@@ -97,11 +113,35 @@ class DetailViewModel(
                     totalChapters = media.chapters,
                     progress = 1,
                     status = "WATCHING",
+                    isAddedLocally = true,
                     format = media.format,
                     genresCsv = media.genres.joinToString(","),
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.saveUserEntry(newEntry)
+            }
+        }
+    }
+
+    fun quickDecrementProgress() {
+        val entry = userEntry.value ?: return
+        viewModelScope.launch {
+            if (entry.progress > 0) {
+                val newProgress = entry.progress - 1
+                val total = if (entry.type == "MANGA") entry.totalChapters else entry.totalEpisodes
+                val newStatus = if (entry.status == "COMPLETED" && total != null && newProgress < total) {
+                    "WATCHING"
+                } else {
+                    entry.status
+                }
+                repository.saveUserEntry(
+                    entry.copy(
+                        progress = newProgress,
+                        status = newStatus,
+                        isAddedLocally = true,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
             }
         }
     }
