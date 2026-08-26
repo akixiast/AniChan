@@ -26,10 +26,11 @@ enum class LibrarySort(val displayName: String) {
 
 data class LibraryFilter(
     val mediaType: String = "ALL", // ALL, ANIME, MANGA
-    val status: String = "ALL", // ALL, WATCHING, COMPLETED, PLANNING, PAUSED, DROPPED, REWATCHING, FAVORITES
+    val status: String = "WATCHING", // Changed default to WATCHING
     val searchQuery: String = "",
     val sort: LibrarySort = LibrarySort.TITLE,
-    val hideCompletedInAll: Boolean = false
+    val hideCompletedInAll: Boolean = false,
+    val isCleanModeEnabled: Boolean = false
 )
 
 class LibraryViewModel(
@@ -41,7 +42,8 @@ class LibraryViewModel(
 
     private val _filter = MutableStateFlow(
         LibraryFilter(
-            hideCompletedInAll = prefs.getBoolean("hide_completed_in_all", false)
+            hideCompletedInAll = prefs.getBoolean("hide_completed_in_all", false),
+            isCleanModeEnabled = prefs.getBoolean("is_clean_mode_enabled", false)
         )
     )
     val filter: StateFlow<LibraryFilter> = _filter.asStateFlow()
@@ -50,6 +52,11 @@ class LibraryViewModel(
 
     val filteredEntries: StateFlow<List<UserMediaEntry>> = combine(_allEntries, _filter) { entries, filter ->
         var list = entries
+
+        // Library Cleaner: Hide entries not manually added in app if clean mode is ON
+        if (filter.isCleanModeEnabled) {
+            list = list.filter { it.isManuallyAdded }
+        }
 
         // Type filter
         if (filter.mediaType != "ALL") {
@@ -145,6 +152,11 @@ class LibraryViewModel(
         prefs.edit().putBoolean("hide_completed_in_all", hide).apply()
     }
 
+    fun setCleanModeEnabled(enabled: Boolean) {
+        _filter.value = _filter.value.copy(isCleanModeEnabled = enabled)
+        prefs.edit().putBoolean("is_clean_mode_enabled", enabled).apply()
+    }
+
     fun incrementProgress(entry: UserMediaEntry) {
         viewModelScope.launch {
             val total = if (entry.type == "MANGA") entry.totalChapters else entry.totalEpisodes
@@ -155,6 +167,20 @@ class LibraryViewModel(
                 val updatedEntry = entry.copy(
                     progress = newProgress,
                     status = newStatus,
+                    isManuallyAdded = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.saveUserEntry(updatedEntry)
+            }
+        }
+    }
+
+    fun decrementProgress(entry: UserMediaEntry) {
+        viewModelScope.launch {
+            if (entry.progress > 0) {
+                val updatedEntry = entry.copy(
+                    progress = entry.progress - 1,
+                    isManuallyAdded = true,
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.saveUserEntry(updatedEntry)
@@ -166,6 +192,7 @@ class LibraryViewModel(
         viewModelScope.launch {
             val updated = entry.copy(
                 isFavorite = !entry.isFavorite,
+                isManuallyAdded = true,
                 updatedAt = System.currentTimeMillis()
             )
             repository.saveUserEntry(updated)

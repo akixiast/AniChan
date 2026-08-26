@@ -70,8 +70,8 @@ class AppUpdateManager(private val context: Context) {
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-    val currentVersion: String = "v1.1 beta"
-    val currentVersionCode: String = "1.1.0"
+    val currentVersion: String = "v1.4 beta"
+    val currentVersionCode: String = "1.4.0"
 
     // Built-in GitHub repo
     val repo: String = "akixiast/AniChan"

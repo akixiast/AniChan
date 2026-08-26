@@ -975,6 +975,9 @@ object AniListGraphQL {
                             repeatCount = repeat,
                             format = format,
                             genresCsv = genresList.joinToString(","),
+                            isManuallyAdded = false, // Items synced from AniList are not manually added in app
+                            remoteProgress = progress,
+                            remoteStatus = status,
                             updatedAt = updatedAt
                         )
                     )

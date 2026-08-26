@@ -81,6 +81,7 @@ class DetailViewModel(
                         entry.copy(
                             progress = newProgress,
                             status = newStatus,
+                            isManuallyAdded = true,
                             updatedAt = System.currentTimeMillis()
                         )
                     )
@@ -99,9 +100,25 @@ class DetailViewModel(
                     status = "WATCHING",
                     format = media.format,
                     genresCsv = media.genres.joinToString(","),
+                    isManuallyAdded = true,
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.saveUserEntry(newEntry)
+            }
+        }
+    }
+
+    fun quickDecrementProgress() {
+        val entry = userEntry.value ?: return
+        viewModelScope.launch {
+            if (entry.progress > 0) {
+                repository.saveUserEntry(
+                    entry.copy(
+                        progress = entry.progress - 1,
+                        isManuallyAdded = true,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
             }
         }
     }
@@ -114,6 +131,7 @@ class DetailViewModel(
                 repository.saveUserEntry(
                     entry.copy(
                         isFavorite = !entry.isFavorite,
+                        isManuallyAdded = true,
                         updatedAt = System.currentTimeMillis()
                     )
                 )
@@ -131,6 +149,7 @@ class DetailViewModel(
                     isFavorite = true,
                     format = media.format,
                     genresCsv = media.genres.joinToString(","),
+                    isManuallyAdded = true,
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.saveUserEntry(newEntry)

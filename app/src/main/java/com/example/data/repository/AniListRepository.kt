@@ -224,16 +224,26 @@ class AniListRepository(
 
     suspend fun saveUserEntry(entry: UserMediaEntry) {
         userMediaDao.insertOrUpdate(entry)
+        val account = accountManager ?: return
         try {
-            accountManager?.saveMediaToAniList(
-                mediaId = entry.mediaId,
-                status = entry.watchStatus,
-                progress = entry.progress,
-                progressVolumes = entry.volumesProgress,
-                score = entry.score,
-                notes = entry.notes,
-                repeat = entry.repeatCount
-            )
+            // Rewatch Protection: If completed on AniList, don't update status/progress
+            if (entry.remoteStatus == "COMPLETED") {
+                Log.i("AniListRepository", "Rewatch protection active for ${entry.title}. Skipping AniList sync.")
+                return
+            }
+
+            // Auto-Sync: Sync if progress is ahead of AniList or status changed
+            if (entry.progress > entry.remoteProgress || entry.status != entry.remoteStatus) {
+                account.saveMediaToAniList(
+                    mediaId = entry.mediaId,
+                    status = entry.watchStatus,
+                    progress = entry.progress,
+                    progressVolumes = entry.volumesProgress,
+                    score = entry.score,
+                    notes = entry.notes,
+                    repeat = entry.repeatCount
+                )
+            }
         } catch (e: Exception) {
             Log.w("AniListRepository", "Cloud sync save entry failed: ${e.message}")
         }
@@ -241,10 +251,19 @@ class AniListRepository(
 
     suspend fun updateProgress(mediaId: Int, progress: Int) {
         userMediaDao.updateProgress(mediaId, progress)
+        val account = accountManager ?: return
         try {
-            val entry = userMediaDao.getEntryById(mediaId)
-            if (entry != null) {
-                accountManager?.saveMediaToAniList(
+            val entry = userMediaDao.getEntryById(mediaId) ?: return
+            
+            // Rewatch Protection
+            if (entry.remoteStatus == "COMPLETED") {
+                Log.i("AniListRepository", "Rewatch protection: Skipping progress sync for ${entry.title}")
+                return
+            }
+
+            // Auto-Sync for new progress
+            if (progress > entry.remoteProgress) {
+                account.saveMediaToAniList(
                     mediaId = mediaId,
                     status = entry.watchStatus,
                     progress = progress,

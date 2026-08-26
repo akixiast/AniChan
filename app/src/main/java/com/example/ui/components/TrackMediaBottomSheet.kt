@@ -264,7 +264,7 @@ fun TrackMediaBottomSheet(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilledTonalIconButton(
                         onClick = { if (progress > 0) progress-- },
@@ -272,13 +272,6 @@ fun TrackMediaBottomSheet(
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = "Decrease")
                     }
-
-                    Text(
-                        text = "$progress",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
 
                     FilledTonalIconButton(
                         onClick = {
@@ -294,6 +287,14 @@ fun TrackMediaBottomSheet(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Increase")
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "$progress",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -437,6 +438,9 @@ fun TrackMediaBottomSheet(
                             repeatCount = repeatCount,
                             format = media.format,
                             genresCsv = media.genres.joinToString(","),
+                            isManuallyAdded = true, // User is manually saving/editing in app
+                            remoteProgress = existingEntry?.remoteProgress ?: 0,
+                            remoteStatus = existingEntry?.remoteStatus,
                             updatedAt = System.currentTimeMillis()
                         )
                         onSave(entry)

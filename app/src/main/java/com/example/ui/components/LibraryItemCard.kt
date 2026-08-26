@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +57,7 @@ fun LibraryItemCard(
     onCardClick: () -> Unit,
     onEditClick: () -> Unit,
     onIncrementProgress: () -> Unit,
+    onDecrementProgress: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -205,23 +207,43 @@ fun LibraryItemCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Quick +1 Stepper Button
+                // Quick Stepper Buttons (+ / -)
                 val isCompleted = total != null && total > 0 && entry.progress >= total
-                FilledTonalIconButton(
-                    onClick = onIncrementProgress,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("increment_progress_button_${entry.mediaId}"),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = if (isCompleted) Color(0xFF10B981).copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (isCompleted) Icons.Default.Check else Icons.Default.Add,
-                        contentDescription = "Increment Progress",
-                        modifier = Modifier.size(18.dp)
-                    )
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (entry.progress > 0) {
+                        IconButton(
+                            onClick = onDecrementProgress,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("decrement_progress_button_${entry.mediaId}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Decrement Progress",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(2.dp))
+                    }
+
+                    FilledTonalIconButton(
+                        onClick = onIncrementProgress,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("increment_progress_button_${entry.mediaId}"),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = if (isCompleted) Color(0xFF10B981).copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (isCompleted) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = "Increment Progress",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))

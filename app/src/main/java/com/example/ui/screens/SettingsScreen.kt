@@ -163,8 +163,8 @@ fun SettingsScreen(
 
     // Library preference prefs
     val libraryPrefs = remember { context.getSharedPreferences("anichan_library_prefs", Context.MODE_PRIVATE) }
-    var hideCompletedInLibrary by remember {
-        mutableStateOf<Boolean>(libraryPrefs.getBoolean("hide_completed_all", false))
+    var isLibraryCleanerEnabled by remember {
+        mutableStateOf<Boolean>(libraryPrefs.getBoolean("is_clean_mode_enabled", false))
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -359,12 +359,12 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Hide Watched from Main View",
+                                text = "Library Cleaner",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Keeps finished anime from overcrowding your library. They automatically register and sync to AniList, and remain accessible anytime under the Completed tab.",
+                                text = "When ON: Hide all anime entries that were automatically imported/synced from AniList. Show only anime that you manually 'Added' within this app.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
@@ -373,13 +373,13 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Switch(
-                            checked = hideCompletedInLibrary,
+                            checked = isLibraryCleanerEnabled,
                             onCheckedChange = { checked ->
-                                hideCompletedInLibrary = checked
-                                libraryPrefs.edit().putBoolean("hide_completed_all", checked).apply()
+                                isLibraryCleanerEnabled = checked
+                                libraryPrefs.edit().putBoolean("is_clean_mode_enabled", checked).apply()
                                 Toast.makeText(
                                     context,
-                                    if (checked) "Watched anime hidden from 'All' library view" else "All anime shown in library view",
+                                    if (checked) "Library Cleaner enabled: Showing only manually added anime" else "Showing all synced anime in library",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             },
@@ -387,7 +387,7 @@ fun SettingsScreen(
                                 checkedThumbColor = MaterialTheme.colorScheme.primary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
                             ),
-                            modifier = Modifier.testTag("hide_watched_switch")
+                            modifier = Modifier.testTag("library_cleaner_switch")
                         )
                     }
 
@@ -1418,7 +1418,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ==========================================
-            // Section 6: About Section (App Version v1.1 beta)
+            // Section 6: About Section (App Version v1.4 beta)
             // ==========================================
             SectionHeader(
                 icon = Icons.Default.Info,
@@ -1475,14 +1475,14 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Version Badge highlighting "v1.1 beta"
+                    // Version Badge highlighting "v1.4 beta"
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.testTag("app_version_badge")
                     ) {
                         Text(
-                            text = "Version v1.1 beta",
+                            text = "Version v1.4 beta",
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,

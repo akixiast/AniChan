@@ -34,11 +34,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.MediaItem
+import com.example.data.remote.OfflineSeedData
+import com.example.ui.theme.AniChanTheme
 
 @Composable
 fun MediaGridCard(
@@ -341,6 +344,33 @@ fun HeroBannerCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MediaGridCardPreview() {
+    AniChanTheme {
+        Box(modifier = Modifier.padding(16.dp).width(160.dp)) {
+            MediaGridCard(
+                media = OfflineSeedData.trendingAnime.first(),
+                onClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HeroBannerCardPreview() {
+    AniChanTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            HeroBannerCard(
+                media = OfflineSeedData.trendingAnime.first(),
+                onClick = {},
+                onTrackClick = {}
+            )
         }
     }
 }

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -291,6 +292,7 @@ fun DetailScreen(
                         userEntry = userEntry,
                         onOpenTrackSheet = { viewModel.setTrackingSheetOpen(true) },
                         onQuickIncrement = { viewModel.quickIncrementProgress() },
+                        onQuickDecrement = { viewModel.quickDecrementProgress() },
                         onToggleFavorite = { viewModel.toggleFavorite() },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
@@ -590,6 +592,7 @@ fun DetailTrackerCard(
     userEntry: UserMediaEntry?,
     onOpenTrackSheet: () -> Unit,
     onQuickIncrement: () -> Unit,
+    onQuickDecrement: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -638,8 +641,22 @@ fun DetailTrackerCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    if (userEntry.progress > 0) {
+                        IconButton(
+                            onClick = onQuickDecrement,
+                            modifier = Modifier.size(34.dp).testTag("detail_quick_decrement")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Remove Episode",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
                     FilledTonalIconButton(
                         onClick = onQuickIncrement,
                         modifier = Modifier.size(38.dp).testTag("detail_quick_increment")

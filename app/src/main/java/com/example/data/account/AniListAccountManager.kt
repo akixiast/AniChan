@@ -298,9 +298,21 @@ class AniListAccountManager(
             Log.e("AniListAccountManager", "Failed to fetch manga list", e)
         }
 
-        // 3. Batch insert/update into Room Database
+        // 3. Merge with existing entries to preserve local flags like isManuallyAdded
         if (allEntries.isNotEmpty()) {
-            userMediaDao.insertOrUpdateAll(allEntries)
+            val existingEntries = userMediaDao.getAllEntriesDirect().associateBy { it.mediaId }
+            val mergedEntries = allEntries.map { newEntry ->
+                val existing = existingEntries[newEntry.mediaId]
+                if (existing != null) {
+                    newEntry.copy(
+                        isManuallyAdded = existing.isManuallyAdded,
+                        isFavorite = existing.isFavorite
+                    )
+                } else {
+                    newEntry
+                }
+            }
+            userMediaDao.insertOrUpdateAll(mergedEntries)
         }
 
         // 4. Update Profile Statistics

@@ -152,6 +152,9 @@ data class UserMediaEntry(
     val genresCsv: String = "",
     val startedAt: Long? = null,
     val completedAt: Long? = null,
+    val isManuallyAdded: Boolean = false,
+    val remoteProgress: Int = 0,
+    val remoteStatus: String? = null,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     val watchStatus: UserWatchStatus
