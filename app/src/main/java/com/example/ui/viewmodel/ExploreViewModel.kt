@@ -45,37 +45,40 @@ class ExploreViewModel(
     fun loadData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            try {
-                val trendingResult = repository.getTrending(type = MediaType.ANIME, page = 1, perPage = 10)
-                val seasonalResult = repository.getSeasonal(
+            
+            // Load sections in parallel to improve performance on slow data
+            launch {
+                val result = repository.getTrending(type = MediaType.ANIME, page = 1, perPage = 10)
+                val items = result.getOrDefault(emptyList())
+                _uiState.value = _uiState.value.copy(
+                    trendingAnime = items,
+                    heroMedia = (items.take(5) + _uiState.value.seasonalAnime.take(3)).distinctBy { it.id },
+                    isLoading = false // Show content as soon as trending is ready
+                )
+            }
+
+            launch {
+                val result = repository.getSeasonal(
                     season = _uiState.value.currentSeasonName,
                     year = _uiState.value.currentYear,
                     page = 1,
                     perPage = 10
                 )
-                val popularResult = repository.getPopular(type = MediaType.ANIME, page = 1, perPage = 10)
-                val mangaResult = repository.getTrending(type = MediaType.MANGA, page = 1, perPage = 10)
-
-                val trending = trendingResult.getOrDefault(emptyList())
-                val seasonal = seasonalResult.getOrDefault(emptyList())
-                val popular = popularResult.getOrDefault(emptyList())
-                val manga = mangaResult.getOrDefault(emptyList())
-
-                val heroList = (trending.take(5) + seasonal.take(3)).distinctBy { it.id }
-
+                val items = result.getOrDefault(emptyList())
                 _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    heroMedia = heroList,
-                    trendingAnime = trending,
-                    seasonalAnime = seasonal,
-                    topRatedAnime = popular,
-                    trendingManga = manga
+                    seasonalAnime = items,
+                    heroMedia = (_uiState.value.trendingAnime.take(5) + items.take(3)).distinctBy { it.id }
                 )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message
-                )
+            }
+
+            launch {
+                val result = repository.getPopular(type = MediaType.ANIME, page = 1, perPage = 10)
+                _uiState.value = _uiState.value.copy(topRatedAnime = result.getOrDefault(emptyList()))
+            }
+
+            launch {
+                val result = repository.getTrending(type = MediaType.MANGA, page = 1, perPage = 10)
+                _uiState.value = _uiState.value.copy(trendingManga = result.getOrDefault(emptyList()))
             }
         }
     }

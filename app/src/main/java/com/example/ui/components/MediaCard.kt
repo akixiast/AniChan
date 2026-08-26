@@ -72,8 +72,9 @@ fun MediaGridCard(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(media.coverImageLarge.ifBlank { media.coverImageExtraLarge })
+                        .data(media.coverImageLarge.ifBlank { media.coverImageMedium })
                         .crossfade(true)
+                        .placeholderMemoryCacheKey(media.coverImageMedium) // Use small image as placeholder if cached
                         .build(),
                     contentDescription = media.displayTitle,
                     contentScale = ContentScale.Crop,

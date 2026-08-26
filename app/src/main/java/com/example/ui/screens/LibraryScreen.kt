@@ -292,7 +292,6 @@ fun LibraryScreen(
                         LibraryItemCard(
                             entry = entry,
                             onCardClick = { onNavigateToDetail(entry.mediaId) },
-                            onEditClick = { entryToEdit = entry },
                             onIncrementProgress = { viewModel.incrementProgress(entry) },
                             onDecrementProgress = { viewModel.decrementProgress(entry) },
                             onToggleFavorite = { viewModel.toggleFavorite(entry) },

@@ -11,7 +11,6 @@ import com.example.data.model.MediaType
 import com.example.data.model.ReviewItem
 import com.example.data.model.StaffItem
 import com.example.data.model.UserMediaEntry
-import org.json.JSONArray
 import org.json.JSONObject
 
 object AniListGraphQL {
@@ -165,13 +164,6 @@ object AniListGraphQL {
         }
     """.trimIndent()
 
-    val DELETE_MEDIA_LIST_ENTRY_MUTATION = """
-        mutation (${'$'}id: Int) {
-          DeleteMediaListEntry(id: ${'$'}id) {
-            deleted
-          }
-        }
-    """.trimIndent()
 
     val TRENDING_QUERY = """
         query (${'$'}page: Int, ${'$'}perPage: Int, ${'$'}type: MediaType) {
@@ -192,7 +184,6 @@ object AniListGraphQL {
               type
               format
               status
-              description
               season
               seasonYear
               episodes
@@ -243,7 +234,6 @@ object AniListGraphQL {
               type
               format
               status
-              description
               season
               seasonYear
               episodes
@@ -286,7 +276,6 @@ object AniListGraphQL {
               type
               format
               status
-              description
               seasonYear
               episodes
               chapters
@@ -329,7 +318,6 @@ object AniListGraphQL {
               type
               format
               status
-              description
               season
               seasonYear
               episodes
@@ -553,8 +541,8 @@ object AniListGraphQL {
         val idMal = if (json.has("idMal") && !json.isNull("idMal")) json.optInt("idMal") else null
         val titleObj = json.optJSONObject("title")
         val titleRomaji = titleObj?.optString("romaji", "") ?: ""
-        val titleEnglish = titleObj?.optString("english", null)
-        val titleNative = titleObj?.optString("native", null)
+        val titleEnglish: String? = if (titleObj?.has("english") == true && !titleObj.isNull("english")) titleObj.optString("english") else null
+        val titleNative: String? = if (titleObj?.has("native") == true && !titleObj.isNull("native")) titleObj.optString("native") else null
 
         val typeStr = json.optString("type", "ANIME")
         val type = if (typeStr == "MANGA") MediaType.MANGA else MediaType.ANIME
@@ -568,10 +556,10 @@ object AniListGraphQL {
         }
 
         val description = json.optString("description", "")
-        val season = if (json.has("season") && !json.isNull("season")) json.optString("season") else null
-        val seasonYear = if (json.has("seasonYear") && !json.isNull("seasonYear")) json.optInt("seasonYear") else null
-        val episodes = if (json.has("episodes") && !json.isNull("episodes")) json.optInt("episodes") else null
-        val duration = if (json.has("duration") && !json.isNull("duration")) json.optInt("duration") else null
+        val season: String? = if (json.has("season") && !json.isNull("season")) json.optString("season") else null
+        val seasonYear: Int? = if (json.has("seasonYear") && !json.isNull("seasonYear")) json.optInt("seasonYear") else null
+        val episodes: Int? = if (json.has("episodes") && !json.isNull("episodes")) json.optInt("episodes") else null
+        val duration: Int? = if (json.has("duration") && !json.isNull("duration")) json.optInt("duration") else null
         val chapters = if (json.has("chapters") && !json.isNull("chapters")) json.optInt("chapters") else null
         val volumes = if (json.has("volumes") && !json.isNull("volumes")) json.optInt("volumes") else null
 
@@ -939,8 +927,8 @@ object AniListGraphQL {
 
                     val mediaType = mediaObj?.optString("type", defaultType) ?: defaultType
                     val format = mediaObj?.optString("format", "TV") ?: "TV"
-                    val episodes = if (mediaObj?.has("episodes") == true && !mediaObj.isNull("episodes")) mediaObj.optInt("episodes") else null
-                    val chapters = if (mediaObj?.has("chapters") == true && !mediaObj.isNull("chapters")) mediaObj.optInt("chapters") else null
+                    val episodes: Int? = if (mediaObj?.has("episodes") == true && !mediaObj.isNull("episodes")) mediaObj.optInt("episodes") else null
+                    val chapters: Int? = if (mediaObj?.has("chapters") == true && !mediaObj.isNull("chapters")) mediaObj.optInt("chapters") else null
 
                     val coverObj = mediaObj?.optJSONObject("coverImage")
                     val coverImage = coverObj?.optString("extraLarge")

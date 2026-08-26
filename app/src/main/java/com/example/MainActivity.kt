@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.example.data.local.AppDatabase
 import com.example.data.remote.AniListApiService
@@ -22,8 +21,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val app = application as AniChanApplication
         val database = AppDatabase.getInstance(applicationContext)
-        val apiService = AniListApiService()
+        val apiService = AniListApiService(app.httpClient)
         val accountManager = com.example.data.account.AniListAccountManager.getInstance(
             context = applicationContext,
             apiService = apiService,

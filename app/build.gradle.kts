@@ -11,17 +11,18 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 37
 
   defaultConfig {
     applicationId = "com.aistudio.anichan.vkwzrp"
     minSdk = 24
-    targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    targetSdk = 35
+    versionCode = 4 // Updated for v1.4
+    versionName = "1.4" // Matches v1.4 beta
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    resourceConfigurations += listOf("en")
+    @Suppress("UnstableApiUsage")
+    androidResources.localeFilters += "en"
   }
 
   signingConfigs {
@@ -142,10 +143,7 @@ dependencies {
   testImplementation(libs.roborazzi)
   testImplementation(libs.roborazzi.compose)
   testImplementation(libs.roborazzi.junit.rule)
-  androidTestImplementation(platform(libs.androidx.compose.bom))
-  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
-  androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)

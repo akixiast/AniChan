@@ -11,13 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class AniListApiService {
-
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
-        .build()
+class AniListApiService(private val client: OkHttpClient) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 

@@ -1,7 +1,6 @@
 package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Remove
@@ -41,21 +38,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.data.model.UserMediaEntry
 import com.example.data.model.UserWatchStatus
 import com.example.ui.theme.AniCoralSecondary
+import java.util.Locale
 
 @Composable
 fun LibraryItemCard(
     entry: UserMediaEntry,
     onCardClick: () -> Unit,
-    onEditClick: () -> Unit,
     onIncrementProgress: () -> Unit,
     onDecrementProgress: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -96,7 +95,10 @@ fun LibraryItemCard(
                     .aspectRatio(0.7f)
             ) {
                 AsyncImage(
-                    model = entry.coverImage,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(entry.coverImage)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = entry.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -129,7 +131,7 @@ fun LibraryItemCard(
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
-                                text = if (entry.score % 1f == 0f) "${entry.score.toInt()}" else String.format("%.1f", entry.score),
+                                text = if (entry.score % 1f == 0f) "${entry.score.toInt()}" else String.format(Locale.getDefault(), "%.1f", entry.score),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
