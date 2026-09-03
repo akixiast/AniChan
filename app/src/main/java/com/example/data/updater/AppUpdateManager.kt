@@ -297,6 +297,12 @@ class AppUpdateManager(private val context: Context) {
         }
 
         try {
+            if (!canInstallUnknownApps()) {
+                openInstallPermissionSettings()
+                _downloadState.value = DownloadState.Error("Please allow 'Install unknown apps' permission in Settings, then tap Install again.")
+                return
+            }
+
             _downloadState.value = DownloadState.Installing
 
             val apkUri = FileProvider.getUriForFile(
