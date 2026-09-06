@@ -59,6 +59,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import com.example.data.model.MediaItem
 import com.example.data.model.MediaType
 import com.example.ui.components.HeroBannerCard
@@ -85,20 +88,13 @@ fun ExploreScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_torii_gate),
+                            contentDescription = "AniChan App Logo",
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "A",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 18.sp
-                            )
-                        }
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                        )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "AniChan",

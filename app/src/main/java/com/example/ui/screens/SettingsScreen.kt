@@ -112,7 +112,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
+import com.example.R
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -1442,27 +1445,13 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // App Logo Symbol
-                    Box(
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_torii_gate),
+                        contentDescription = "AniChan App Logo",
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(64.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.secondary
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Ani",
-                            color = Color.White,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp
-                        )
-                    }
+                    )
 
                     Spacer(modifier = Modifier.height(10.dp))
 

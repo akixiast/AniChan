@@ -1,6 +1,7 @@
 package com.example.data.notification
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -287,6 +288,43 @@ class EpisodeNotificationManager(private val context: Context) {
             NotificationManagerCompat.from(context).notify(mediaId, builder.build())
         } catch (e: SecurityException) {
             Log.e("NotificationManager", "SecurityException posting notification", e)
+        }
+    }
+
+    /**
+     * Schedules periodic background check for airing episodes using AlarmManager
+     */
+    fun scheduleNextAiringCheck() {
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, AiringAlarmReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                8881,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Schedule to run every 2 hours
+            val intervalMs = 2 * 60 * 60 * 1000L
+            val triggerAtMs = System.currentTimeMillis() + intervalMs
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMs,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setInexactRepeating(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMs,
+                    intervalMs,
+                    pendingIntent
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("EpisodeNotificationManager", "Error scheduling alarm", e)
         }
     }
 

@@ -80,6 +80,12 @@ fun FormatBadge(
     format: String,
     modifier: Modifier = Modifier
 ) {
+    val displayFormat = when (format.uppercase()) {
+        "NOVEL" -> "Light Novel"
+        "ONE_SHOT" -> "One-Shot"
+        "TV_SHORT" -> "Short"
+        else -> format
+    }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))
@@ -87,7 +93,7 @@ fun FormatBadge(
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
-            text = format,
+            text = displayFormat,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.SemiBold,

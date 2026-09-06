@@ -212,7 +212,7 @@ fun SearchScreen(
                     onValueChange = { viewModel.onQueryChanged(it) },
                     placeholder = {
                         Text(
-                            text = if (uiState.mediaType == MediaType.ANIME) "Search any anime in history..." else "Search manga, manhwa, novels...",
+                            text = "Search anime, manga, light novels, manhwa...",
                             fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -262,69 +262,103 @@ fun SearchScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Primary Filter & Control Row
+                // Quick Category Selection Bar (All, Anime, Manga, Light Novels, Manhwa, Manhua)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // Anime / Manga Type Toggle
-                        FilterChip(
-                            selected = uiState.mediaType == MediaType.ANIME,
-                            onClick = { viewModel.setMediaType(MediaType.ANIME) },
-                            label = { Text("Anime", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.testTag("filter_anime_chip")
-                        )
+                    // ALL Category Chip
+                    FilterChip(
+                        selected = uiState.mediaType == null && uiState.selectedFormat == null && uiState.selectedCountry == null,
+                        onClick = { viewModel.selectQuickCategory("ALL") },
+                        label = { Text("🌟 All", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_all_chip")
+                    )
 
-                        FilterChip(
-                            selected = uiState.mediaType == MediaType.MANGA,
-                            onClick = { viewModel.setMediaType(MediaType.MANGA) },
-                            label = { Text("Manga & Novels", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.testTag("filter_manga_chip")
-                        )
+                    // ANIME Category Chip
+                    FilterChip(
+                        selected = uiState.mediaType == MediaType.ANIME && uiState.selectedFormat == null,
+                        onClick = { viewModel.selectQuickCategory("ANIME") },
+                        label = { Text("📺 Anime", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_anime_chip")
+                    )
 
-                        // Filters Dialog Trigger with Active Badge
-                        BadgedBox(
-                            badge = {
-                                if (activeFilterCount > 0) {
-                                    Badge(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary
-                                    ) {
-                                        Text("$activeFilterCount")
-                                    }
+                    // MANGA Category Chip
+                    FilterChip(
+                        selected = uiState.mediaType == MediaType.MANGA && uiState.selectedFormat == "MANGA",
+                        onClick = { viewModel.selectQuickCategory("MANGA") },
+                        label = { Text("📖 Manga", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_manga_chip")
+                    )
+
+                    // LIGHT NOVEL Category Chip
+                    FilterChip(
+                        selected = uiState.selectedFormat == "NOVEL",
+                        onClick = { viewModel.selectQuickCategory("NOVEL") },
+                        label = { Text("📚 Light Novels", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_novel_chip")
+                    )
+
+                    // MANHWA Category Chip
+                    FilterChip(
+                        selected = uiState.selectedCountry == "KR",
+                        onClick = { viewModel.selectQuickCategory("MANHWA") },
+                        label = { Text("🇰🇷 Manhwa / Webtoon", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_manhwa_chip")
+                    )
+
+                    // MANHUA Category Chip
+                    FilterChip(
+                        selected = uiState.selectedCountry == "CN",
+                        onClick = { viewModel.selectQuickCategory("MANHUA") },
+                        label = { Text("🇨🇳 Manhua", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("filter_manhua_chip")
+                    )
+
+                    // Filters Dialog Trigger
+                    BadgedBox(
+                        badge = {
+                            if (activeFilterCount > 0) {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ) {
+                                    Text("$activeFilterCount")
                                 }
                             }
-                        ) {
-                            FilterChip(
-                                selected = activeFilterCount > 0,
-                                onClick = { isFilterSheetOpen = true },
-                                label = {
-                                    Text(
-                                        text = if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters",
-                                        fontSize = 12.sp
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.FilterList,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.testTag("filter_button")
-                            )
                         }
+                    ) {
+                        FilterChip(
+                            selected = activeFilterCount > 0,
+                            onClick = { isFilterSheetOpen = true },
+                            label = {
+                                Text(
+                                    text = if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters",
+                                    fontSize = 12.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("filter_button")
+                        )
                     }
 
-                    // Layout Mode Toggle
+                    // Layout View Mode Toggle
                     IconButton(
                         onClick = { viewModel.toggleLayoutMode() },
                         modifier = Modifier
@@ -339,7 +373,7 @@ fun SearchScreen(
                     }
                 }
 
-                // Horizontal Quick Filters (Country + Genres)
+                // Horizontal Genre Chips Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -347,28 +381,6 @@ fun SearchScreen(
                         .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Country Origin Chips
-                    FilterChip(
-                        selected = uiState.selectedCountry == "KR",
-                        onClick = { viewModel.selectCountry(if (uiState.selectedCountry == "KR") null else "KR") },
-                        label = { Text("🇰🇷 Manhwa", fontSize = 11.sp) },
-                        shape = RoundedCornerShape(16.dp)
-                    )
-
-                    FilterChip(
-                        selected = uiState.selectedCountry == "CN",
-                        onClick = { viewModel.selectCountry(if (uiState.selectedCountry == "CN") null else "CN") },
-                        label = { Text("🇨🇳 Donghua/Manhua", fontSize = 11.sp) },
-                        shape = RoundedCornerShape(16.dp)
-                    )
-
-                    FilterChip(
-                        selected = uiState.selectedCountry == "JP",
-                        onClick = { viewModel.selectCountry(if (uiState.selectedCountry == "JP") null else "JP") },
-                        label = { Text("🇯🇵 Japanese", fontSize = 11.sp) },
-                        shape = RoundedCornerShape(16.dp)
-                    )
-
                     // Top Genres
                     genres.forEach { genre ->
                         val selected = uiState.selectedGenre == genre

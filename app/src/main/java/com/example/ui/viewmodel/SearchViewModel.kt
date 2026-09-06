@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 
 data class SearchUiState(
     val query: String = "",
-    val mediaType: MediaType = MediaType.ANIME,
+    val mediaType: MediaType? = null, // null = Search ALL (Anime, Manga, Light Novels, Manhwa, Manhua)
     val selectedGenre: String? = null,
     val selectedSeason: String? = null,
     val selectedYear: Int? = null,
@@ -56,11 +56,47 @@ class SearchViewModel(
         }
     }
 
-    fun setMediaType(type: MediaType) {
+    fun setMediaType(type: MediaType?) {
         _uiState.value = _uiState.value.copy(
             mediaType = type,
-            selectedFormat = null // Reset format filter when switching type
+            selectedFormat = null
         )
+        performSearch(page = 1, append = false)
+    }
+
+    fun selectQuickCategory(category: String) {
+        when (category) {
+            "ALL" -> _uiState.value = _uiState.value.copy(
+                mediaType = null,
+                selectedFormat = null,
+                selectedCountry = null
+            )
+            "ANIME" -> _uiState.value = _uiState.value.copy(
+                mediaType = MediaType.ANIME,
+                selectedFormat = null,
+                selectedCountry = null
+            )
+            "MANGA" -> _uiState.value = _uiState.value.copy(
+                mediaType = MediaType.MANGA,
+                selectedFormat = "MANGA",
+                selectedCountry = "JP"
+            )
+            "NOVEL" -> _uiState.value = _uiState.value.copy(
+                mediaType = MediaType.MANGA,
+                selectedFormat = "NOVEL",
+                selectedCountry = null
+            )
+            "MANHWA" -> _uiState.value = _uiState.value.copy(
+                mediaType = MediaType.MANGA,
+                selectedFormat = null,
+                selectedCountry = "KR"
+            )
+            "MANHUA" -> _uiState.value = _uiState.value.copy(
+                mediaType = MediaType.MANGA,
+                selectedFormat = null,
+                selectedCountry = "CN"
+            )
+        }
         performSearch(page = 1, append = false)
     }
 

@@ -90,7 +90,7 @@ class AniListRepository(
 
     suspend fun searchMedia(
         query: String?,
-        type: MediaType = MediaType.ANIME,
+        type: MediaType? = MediaType.ANIME,
         genre: String? = null,
         tag: String? = null,
         season: String? = null,
@@ -121,7 +121,7 @@ class AniListRepository(
 
     suspend fun searchMediaPage(
         query: String?,
-        type: MediaType = MediaType.ANIME,
+        type: MediaType? = MediaType.ANIME,
         genre: String? = null,
         tag: String? = null,
         season: String? = null,
@@ -135,11 +135,11 @@ class AniListRepository(
     ): Result<com.example.data.model.SearchResult> {
         return try {
             val vars = mutableMapOf<String, Any?>(
-                "type" to type.apiValue,
                 "sort" to listOf(sort),
                 "page" to page,
                 "perPage" to perPage
             )
+            if (type != null) vars["type"] = type.apiValue
             if (!query.isNullOrBlank()) vars["search"] = query.trim()
             if (!genre.isNullOrBlank()) vars["genre"] = genre
             if (!tag.isNullOrBlank()) vars["tag"] = tag

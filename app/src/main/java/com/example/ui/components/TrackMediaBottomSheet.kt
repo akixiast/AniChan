@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,6 +105,106 @@ fun TrackMediaBottomSheet(
 
     var notes by remember {
         mutableStateOf(existingEntry?.notes ?: "")
+    }
+
+    var showManualInputDialog by remember { mutableStateOf(false) }
+    var manualInputText by remember { mutableStateOf("$progress") }
+
+    if (showManualInputDialog) {
+        AlertDialog(
+            onDismissRequest = { showManualInputDialog = false },
+            title = {
+                Text(
+                    text = if (isManga) "Register Chapters Read" else "Register Episodes Watched",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = if (totalProgress != null) 
+                            "Type exact number (Max available: $totalProgress ${if (isManga) "chapters" else "episodes"}):" 
+                        else 
+                            "Type exact number:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = manualInputText,
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.all { it.isDigit() }) {
+                                val num = input.toIntOrNull()
+                                if (num != null && totalProgress != null && num > totalProgress) {
+                                    manualInputText = "$totalProgress" // Automatically cap to total episodes!
+                                } else {
+                                    manualInputText = input
+                                }
+                            }
+                        },
+                        label = { Text(if (isManga) "Chapters" else "Episodes") },
+                        supportingText = {
+                            if (totalProgress != null) {
+                                Text("Cannot exceed season total of $totalProgress", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth().testTag("manual_progress_input")
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(10, 50, 100).forEach { bump ->
+                            OutlinedButton(
+                                onClick = {
+                                    val current = manualInputText.toIntOrNull() ?: 0
+                                    val max = totalProgress ?: 99999
+                                    val next = (current + bump).coerceAtMost(max)
+                                    manualInputText = "$next"
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(4.dp)
+                            ) {
+                                Text("+$bump", fontSize = 11.sp)
+                            }
+                        }
+                        if (totalProgress != null) {
+                            OutlinedButton(
+                                onClick = { manualInputText = "$totalProgress" },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(4.dp)
+                            ) {
+                                Text("Max ($totalProgress)", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsed = manualInputText.toIntOrNull() ?: progress
+                        val max = totalProgress ?: 999999
+                        progress = parsed.coerceIn(0, max)
+                        if (totalProgress != null && progress == totalProgress) {
+                            status = UserWatchStatus.COMPLETED
+                        }
+                        showManualInputDialog = false
+                    }
+                ) {
+                    Text("Save Progress")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showManualInputDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     ModalBottomSheet(
@@ -266,13 +368,35 @@ fun TrackMediaBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Left: Minus Button
                     FilledTonalIconButton(
                         onClick = { if (progress > 0) progress-- },
-                        modifier = Modifier.size(36.dp).testTag("stepper_minus")
+                        modifier = Modifier.size(38.dp).testTag("stepper_minus")
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = "Decrease")
                     }
 
+                    // Middle: Clickable Number (Tap or Double Tap opens manual input keyboard)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier
+                            .clickable {
+                                manualInputText = "$progress"
+                                showManualInputDialog = true
+                            }
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                            .testTag("progress_manual_chip")
+                    ) {
+                        Text(
+                            text = if (totalProgress != null) "$progress / $totalProgress" else "$progress",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    // Right: Plus Button
                     FilledTonalIconButton(
                         onClick = {
                             val max = totalProgress ?: 9999
@@ -283,18 +407,10 @@ fun TrackMediaBottomSheet(
                                 }
                             }
                         },
-                        modifier = Modifier.size(36.dp).testTag("stepper_plus")
+                        modifier = Modifier.size(38.dp).testTag("stepper_plus")
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Increase")
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = "$progress",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 

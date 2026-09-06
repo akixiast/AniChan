@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.example.data.local.AppDatabase
+import com.example.data.notification.EpisodeNotificationManager
 import com.example.data.remote.AniListApiService
 import com.example.data.repository.AniListRepository
 import com.example.ui.navigation.AniChanApp
@@ -35,6 +36,9 @@ class MainActivity : ComponentActivity() {
             accountManager = accountManager
         )
         val themePreferences = ThemePreferences.getInstance(applicationContext)
+
+        // Schedule background episode airing notification checks
+        EpisodeNotificationManager.getInstance(applicationContext).scheduleNextAiringCheck()
 
         setContent {
             val themeState by themePreferences.themeState.collectAsState()
