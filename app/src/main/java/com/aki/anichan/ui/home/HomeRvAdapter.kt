@@ -135,9 +135,11 @@ class HomeRvAdapter(
                     // top rails get slightly bigger cards than the rest
                     val scale = if (item.viewType == HomeItem.VIEW_TYPE_TOP_ANIME || item.viewType == HomeItem.VIEW_TYPE_TOP_MANGA) 1.7 else 2.1
                     trendingListRecyclerView.adapter = TrendingMediaRvAdapter(context, item.media, appSetting, width, listener.trendingMediaListener, scale)
-                    trendingProgressBar.show(false)
+                    root.show(true)
                 } else {
-                    trendingProgressBar.show(true)
+                    // no per-section spinner: empty rails stay hidden until data arrives;
+                    // the fragment shows one unified loading state instead
+                    root.show(false)
                 }
             }
         }

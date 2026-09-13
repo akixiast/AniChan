@@ -586,4 +586,15 @@
         <item quantity="one">volume</item>
         <item quantity="other">volumes</item>
     </plurals>
+    <!-- App updates -->
+    <string name="app_updates">App updates</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="checking_for_updates">Checking for updates…</string>
+    <string name="app_is_up_to_date">App is up to date (%1$s)</string>
+    <string name="update_available_message">Version %1$s is available. Tap to open Settings and download it.</string>
+    <string name="new_version_available">New version available: %1$s</string>
+    <string name="download_update">Download update</string>
+    <string name="downloading_update">Downloading AniChan update…</string>
+    <string name="update_check_failed">Could not check for updates. Try again later.</string>
+    <string name="view_release_notes">View release notes</string>
 </resources>

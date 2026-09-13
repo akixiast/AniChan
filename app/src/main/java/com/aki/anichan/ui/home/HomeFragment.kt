@@ -9,6 +9,7 @@ import com.aki.anichan.data.response.anilist.MediaList
 import com.aki.anichan.databinding.FragmentHomeBinding
 import com.aki.anichan.helper.enums.MediaType
 import com.aki.anichan.helper.extensions.applyTopPaddingInsets
+import com.aki.anichan.helper.extensions.show
 import com.aki.anichan.ui.base.BaseFragment
 import com.aki.anichan.ui.main.SharedMainViewModel
 import org.koin.androidx.viewmodel.ext.android.sharedViewModel
@@ -21,6 +22,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, HomeViewModel>() {
     private val sharedViewModel by sharedViewModel<SharedMainViewModel>()
 
     private var homeAdapter: HomeRvAdapter? = null
+    private var hasHomeContent = false
 
     override fun generateViewBinding(
         inflater: LayoutInflater,
@@ -47,15 +49,22 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, HomeViewModel>() {
             viewModel.error.subscribe {
                 dialog.showToast(it)
             },
-            viewModel.loading.subscribe {
-                binding.homeSwipeRefresh.isRefreshing = it
+            viewModel.loading.subscribe { isLoading ->
+                // single unified loading state: centered spinner on first load,
+                // swipe-refresh indicator only once content is already showing
+                binding.homeSwipeRefresh.isRefreshing = isLoading && hasHomeContent
+                binding.homeLoadingProgressBar.show(isLoading && !hasHomeContent)
             },
             viewModel.adapterComponent.subscribe {
                 homeAdapter = HomeRvAdapter(requireContext(), listOf(), it.user, it.appSetting, screenWidth, getHomeListener())
                 binding.homeRecyclerView.adapter = homeAdapter
             },
-            viewModel.homeItemList.subscribe {
-                homeAdapter?.updateData(it)
+            viewModel.homeItemList.subscribe { list ->
+                homeAdapter?.updateData(list)
+                if (list.any { it.media.isNotEmpty() || it.releasingToday.isNotEmpty() }) {
+                    hasHomeContent = true
+                    binding.homeLoadingProgressBar.show(false)
+                }
             },
             viewModel.searchCategoryList.subscribe {
                 dialog.showListDialog(it) { data, _ ->

@@ -75,6 +75,58 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/aboutSettingsUpdateTitle"
+                android:text="@string/app_updates"
+                style="?themeRegularBoldFont"
+                app:layout_constraintTop_toBottomOf="@id/aboutSettingsGitHubLink"
+                android:layout_marginTop="@dimen/marginPageBig"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/aboutSettingsUpdateStatusText"
+                style="?themeSmallFont"
+                app:layout_constraintTop_toBottomOf="@id/aboutSettingsUpdateTitle"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginTop="@dimen/marginNormal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/aboutSettingsCheckUpdateButton"
+                android:text="@string/check_for_updates"
+                style="?themePrimaryBorderButton"
+                app:layout_constraintTop_toBottomOf="@id/aboutSettingsUpdateStatusText"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginTop="@dimen/marginNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/aboutSettingsDownloadUpdateButton"
+                android:text="@string/download_update"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/aboutSettingsCheckUpdateButton"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginTop="@dimen/marginNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/aboutSettingsReleaseNotesButton"
+                android:text="@string/view_release_notes"
+                style="?themePrimaryBorderButton"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/aboutSettingsCheckUpdateButton"
+                app:layout_constraintStart_toEndOf="@id/aboutSettingsDownloadUpdateButton"
+                android:layout_marginStart="@dimen/marginNormal"
+                android:layout_marginTop="@dimen/marginNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/aboutSettingsAniListLink"
                 app:layout_constraintTop_toBottomOf="@+id/aboutSettingsImportantLinkTitle"

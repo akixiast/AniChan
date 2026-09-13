@@ -19,6 +19,8 @@ import com.aki.anichan.helper.service.clipboard.ClipboardService
 import com.aki.anichan.helper.service.clipboard.DefaultClipboardService
 import com.aki.anichan.helper.service.pushnotification.DefaultPushNotificationService
 import com.aki.anichan.helper.service.pushnotification.PushNotificationService
+import com.aki.anichan.helper.service.update.AppUpdateCheckWorker
+import com.aki.anichan.helper.service.update.AppUpdateChecker
 import com.aki.anichan.ui.activity.ActivityDetailViewModel
 import com.aki.anichan.ui.activity.ActivityListViewModel
 import com.aki.anichan.ui.base.BaseActivityViewModel
@@ -55,6 +57,7 @@ import com.aki.anichan.ui.search.SearchViewModel
 import com.aki.anichan.ui.seasonal.SeasonalViewModel
 import com.aki.anichan.ui.settings.SettingsViewModel
 import com.aki.anichan.ui.settings.account.AccountSettingsViewModel
+import com.aki.anichan.ui.settings.about.AboutViewModel
 import com.aki.anichan.ui.settings.anilist.AniListSettingsViewModel
 import com.aki.anichan.ui.settings.app.AppSettingsViewModel
 import com.aki.anichan.ui.settings.list.ListSettingsViewModel
@@ -151,6 +154,7 @@ class ALchanApplication : Application() {
         // service
         single<ClipboardService> { DefaultClipboardService(this.androidContext()) }
         single<PushNotificationService> { DefaultPushNotificationService(this.androidContext(), get()) }
+        single<AppUpdateChecker> { AppUpdateChecker(this.androidContext(), get()) }
 
         // view model
         viewModel { BaseActivityViewModel(get()) }
@@ -191,6 +195,8 @@ class ALchanApplication : Application() {
         viewModel { NotificationsSettingsViewModel(get()) }
         viewModel { AccountSettingsViewModel(get(), get()) }
 
+        viewModel { AboutViewModel(get()) }
+
         viewModel { ReorderViewModel() }
 
         viewModel { FilterViewModel(get(), get()) }
@@ -224,5 +230,6 @@ class ALchanApplication : Application() {
             androidContext(this@ALchanApplication)
             modules(appModules)
         }
+        AppUpdateCheckWorker.scheduleDaily(this)
     }
 }

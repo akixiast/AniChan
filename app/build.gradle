@@ -9,8 +9,8 @@ android {
         applicationId "com.aki.anichan"
         minSdkVersion 23
         targetSdk 35
-        versionCode 200009
-        versionName "1.6"
+        versionCode 200010
+        versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         def apikeyPropertiesFile = rootProject.file("apikey.properties")
@@ -22,6 +22,14 @@ android {
         def spotifyKey = apikeyProperties.getProperty('SPOTIFY_API_KEY', '""')
         buildConfigField("String", "YOUTUBE_API_KEY", youtubeKey.startsWith('"') ? youtubeKey : "\"$youtubeKey\"")
         buildConfigField("String", "SPOTIFY_API_KEY", spotifyKey.startsWith('"') ? spotifyKey : "\"$spotifyKey\"")
+    }
+    signingConfigs {
+        release {
+            storeFile file("/home/kensagaryadav/Desktop/coding projects/documents/AniChan-release-key/anichan-release.keystore")
+            storePassword new File("/home/kensagaryadav/Desktop/coding projects/documents/AniChan-release-key/.storepass").text.trim()
+            keyAlias "anichan"
+            keyPassword new File("/home/kensagaryadav/Desktop/coding projects/documents/AniChan-release-key/.storepass").text.trim()
+        }
     }
     buildTypes {
         debug {
@@ -36,6 +44,10 @@ android {
             shrinkResources true
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            def releaseKeystore = file("/home/kensagaryadav/Desktop/coding projects/documents/AniChan-release-key/anichan-release.keystore")
+            if (releaseKeystore.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {

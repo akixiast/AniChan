@@ -11,6 +11,9 @@ import com.aki.anichan.databinding.FragmentAboutBinding
 import com.aki.anichan.helper.extensions.applyBottomSidePaddingInsets
 import com.aki.anichan.helper.extensions.applyTopPaddingInsets
 import com.aki.anichan.helper.extensions.clicks
+import com.aki.anichan.helper.extensions.show
+import com.aki.anichan.helper.service.update.AppUpdateDownloader
+import com.aki.anichan.helper.service.update.AppUpdateInfo
 import com.aki.anichan.ui.base.BaseFragment
 import com.aki.anichan.ui.base.NavigationManager
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -19,6 +22,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 class AboutFragment : BaseFragment<FragmentAboutBinding, AboutViewModel>() {
 
     override val viewModel: AboutViewModel by viewModel()
+
+    private var pendingUpdateInfo: AppUpdateInfo? = null
 
     override fun generateViewBinding(
         inflater: LayoutInflater,
@@ -40,6 +45,27 @@ class AboutFragment : BaseFragment<FragmentAboutBinding, AboutViewModel>() {
             aboutSettingsGitHubLink.clicks {
                 navigation.openWebView(NavigationManager.Url.ALCHAN_GITHUB)
             }
+
+            aboutSettingsCheckUpdateButton.clicks {
+                viewModel.checkForUpdate(manual = true)
+            }
+
+            aboutSettingsDownloadUpdateButton.clicks {
+                pendingUpdateInfo?.let { info ->
+                    AppUpdateDownloader.startDownload(
+                        requireContext(),
+                        info.apkDownloadUrl,
+                        "AniChan-${info.latestTag}.apk"
+                    )
+                    dialog.showToast(getString(R.string.downloading_update))
+                }
+            }
+
+            aboutSettingsReleaseNotesButton.clicks {
+                pendingUpdateInfo?.let { info ->
+                    navigation.openWebView(info.releasePageUrl)
+                }
+            }
         }
     }
 
@@ -49,7 +75,38 @@ class AboutFragment : BaseFragment<FragmentAboutBinding, AboutViewModel>() {
     }
 
     override fun setUpObserver() {
-        // do nothing
+        disposables.add(
+            viewModel.updateState.subscribe { state ->
+                binding.apply {
+                    when (state) {
+                        is AboutViewModel.UpdateState.Checking -> {
+                            aboutSettingsUpdateStatusText.text = getString(R.string.checking_for_updates)
+                            aboutSettingsDownloadUpdateButton.show(false)
+                            aboutSettingsReleaseNotesButton.show(false)
+                        }
+                        is AboutViewModel.UpdateState.Available -> {
+                            pendingUpdateInfo = state.info
+                            aboutSettingsUpdateStatusText.text =
+                                getString(R.string.new_version_available, state.info.releaseName)
+                            aboutSettingsDownloadUpdateButton.show(true)
+                            aboutSettingsReleaseNotesButton.show(true)
+                        }
+                        is AboutViewModel.UpdateState.UpToDate -> {
+                            pendingUpdateInfo = null
+                            aboutSettingsUpdateStatusText.text =
+                                getString(R.string.app_is_up_to_date, state.latestTag)
+                            aboutSettingsDownloadUpdateButton.show(false)
+                            aboutSettingsReleaseNotesButton.show(false)
+                        }
+                        is AboutViewModel.UpdateState.Error -> {
+                            aboutSettingsUpdateStatusText.text = getString(R.string.update_check_failed)
+                            aboutSettingsDownloadUpdateButton.show(false)
+                            aboutSettingsReleaseNotesButton.show(false)
+                        }
+                    }
+                }
+            }
+        )
     }
 
     companion object {
