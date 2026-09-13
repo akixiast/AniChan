@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menuDiscover"
+        android:orderInCategory="0"
+        android:icon="@drawable/ic_compass"
+        android:title="@string/discover"/>
+    <item android:id="@+id/menuHome"
+        android:orderInCategory="1"
+        android:icon="@drawable/ic_home"
+        android:title="@string/home"/>
+    <item android:id="@+id/menuLibrary"
+        android:orderInCategory="2"
+        android:icon="@drawable/ic_bar_chart"
+        android:title="@string/library"/>
+    <item android:id="@+id/menuProfile"
+        android:orderInCategory="3"
+        android:icon="@drawable/ic_person"
+        android:title="@string/profile"/>
+    <item android:id="@+id/menuNotifications"
+        android:orderInCategory="4"
+        android:icon="@drawable/ic_notification"
+        android:title="@string/notifications"/>
+</menu>

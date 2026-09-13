@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_marginTop="0dp"
+    android:paddingTop="@dimen/marginNormal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/trendingRightNowText"
+        style="?themeRegularBoldFont"
+        android:letterSpacing="0.02"
+        android:layout_marginStart="@dimen/marginPageNormal"
+        android:layout_marginEnd="@dimen/marginPageNormal"
+        android:layout_marginBottom="@dimen/marginNormal"
+        android:paddingStart="@dimen/marginSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <View
+        android:id="@+id/trendingHeaderAccent"
+        android:background="@drawable/section_header_accent"
+        android:backgroundTint="?themePrimaryColor"
+        android:layout_marginStart="@dimen/marginPageNormal"
+        android:layout_alignTop="@id/trendingRightNowText"
+        android:layout_alignBottom="@id/trendingRightNowText"
+        android:layout_width="4dp"
+        android:layout_height="0dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/trendingListRecyclerView"
+        android:orientation="horizontal"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        android:paddingStart="@dimen/marginPageNormal"
+        android:paddingEnd="@dimen/marginPageNormal"
+        android:clipToPadding="false"
+        android:layout_below="@id/trendingRightNowText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <ProgressBar
+        android:visibility="gone"
+        android:id="@+id/trendingProgressBar"
+        android:layout_below="@id/trendingRightNowText"
+        android:indeterminateTint="?themePrimaryColor"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="@dimen/marginNormal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</RelativeLayout>
